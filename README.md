@@ -188,11 +188,12 @@ For example, if you were bombarded with weather forecasts, you could discard
 every report except the one you most recently received.
 Alternately, consider a value that represents the current time.
 Since the current time is always changing, it would not be meaningful, much less
-practical, to respond every moment it changes.
+possible, to respond every moment it changes.
 
 Time series data comes in two varieties: **discrete** and **continuous**.
 Discrete values should be **pushed** whereas continuous values should be
 **pulled** or **polled**.
+If a homophone is a disaster, what are synonymous homophones?
 
 
 ## Primitives
@@ -406,9 +407,9 @@ expect(iterator.next().value).toBe("Goodbye");
 expect(iterator.next().value).toBe(undefined);
 ```
 
-We must prime the generator because it does not begin with a `yield`.
-We advance, the "program counter" to the first `yield` and allow it to produce
-the initial, undefined message.
+We must prime the generator because it does not begin with a `yield`.  We
+advance, the state machine to the first `yield` and allow it to produce the
+initial, undefined message.
 We then populate the message variable with a value, receiving its former
 undefined content again.
 Then we begin to see the fruit of our labor as the values we previously sent
@@ -418,7 +419,7 @@ This foreshadows the ability of stream readers to push back on stream writers.
 Additionally, the iterator gains a `throw` method that allows the iterator to
 terminate the generator by causing the `yield` expression to raise the given
 error.
-The error will pass through any try -catch or -finally blocks that exist within
+The error will pass through any try- catch or finally blocks that exist within
 the generator and then out the `throw()` method call itself.
 This foreshadows the ability of a stream reader to prematurely stop a stream
 writer.
@@ -458,8 +459,8 @@ generator.yield(30);
 expect(array).toEqual([10, 20, 30]);
 ```
 
-Note that ECMAScript 5, at Doug Crockford’s behest, allows JavaScript keywords
-to be used for property names.
+Since ECMAScript 5, at Doug Crockford’s behest, JavaScript allows keywords to be
+used for property names.
 
 Just as iterations can carry an index from an array iterator, `yield` would
 accept an optional index argument.
@@ -629,11 +630,11 @@ collection of results: values or thrown errors captured by promises.
 The queue is not particular about what those values mean and is a suitable
 primitive for many more interesting tools.
 
-Interface  |         |        |          |
----------- | ------- | ------ | -------- |
-Queue      | Value   | Plural | Temporal |
-queue.get  | Getter  | Plural | Temporal |
-queue.put  | Setter  | Plural | Temporal |
+Interface     |         |        |          |
+------------- | ------- | ------ | -------- |
+PromiseQueue  | Value   | Plural | Temporal |
+queue.get     | Getter  | Plural | Temporal |
+queue.put     | Setter  | Plural | Temporal |
 
 The implementation of a promise queue is sufficiently succinct that there’s no
 harm in embedding it here.
@@ -644,10 +645,10 @@ Internally, a promise queue is an asynchronous linked list that tracks the
 `get` advances the `head` promise and `put` advances the `tail` deferred.
 
 ```js
-module.exports = Queue;
-function Queue() {
-    if (!(this instanceof Queue)) {
-        return new Queue();
+module.exports = PromiseQueue;
+function PromiseQueue() {
+    if (!(this instanceof PromiseQueue)) {
+        return new PromiseQueue();
     }
     var ends = Promise.defer();
     this.put = function (value) {
@@ -668,10 +669,11 @@ function Queue() {
 
 [Concurrency Strawman]: http://wiki.ecmascript.org/doku.php?id=strawman:concurrency
 
-Note that the implementation uses methods defined in a closure.
+The implementation uses methods defined in a closure.
 Regardless of how this is accomplished, it is important that it be possible to
-pass the `get` function to a consumer and `put` to a producer to preserve the
-principle of least authority.
+pass the free `get` function to a consumer and `put` to a producer to preserve
+the principle of least authority and the unidirectional flow of data from
+producer to consumer.
 
 
 ### Semaphores
@@ -1535,4 +1537,6 @@ var progress = (now - start) / (estimate - start);
 -   TODO retry with promises and iterators
 -   TODO hot vs cold https://github.com/Reactive-Extensions/RxJS/blob/master/doc/gettingstarted/creating.md#cold-vs-hot-observables
 -   TODO dispose vs cancel
+-   TODO http://conal.net/ Conal Elliott
+
 
