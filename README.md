@@ -167,7 +167,22 @@ On the consumer side, a vacuum draws values forward and pressure, often called
 **back pressure**, stalls the producer.
 Pressure exists to ensure that every value transits the setter to the getter.
 
-In contrast, with *time series data*, values that change over time but belie
+Since the consumer of a stream expects to see every value, streams are **unicast**
+like tasks.
+As they are unicast they are also cancelable.
+Streams are a cooperation between the reader and the writer and information
+flows both ways.
+Data flows forward, acknowledgements flow backward, and either the consumer or
+producer can terminate the flow.
+
+In contrast, **publishers** and **subscribers** are **broadcast**.
+Information flows only one direction, from the publishers to the subscribers.
+Also, there is no guarantee of continuity.
+The publisher does not wait for a subscriber and the subscriber receives
+whatever values were published during the period of their subscription.
+A stream would buffer all values produced until the consumer arrives.
+
+With *time series data*, values that change over time but belie
 the same meaning, order and integrity may not be important.
 For example, if you were bombarded with weather forecasts, you could discard
 every report except the one you most recently received.
@@ -183,6 +198,8 @@ Discrete values should be **pushed** whereas continuous values should be
 ## Primitives
 
 Let us consider each primitive in detail.
+Since the temporal primitives have spatial analogies, and since some of these
+spatial primitives are relatively new to JavaScript, we will review these first.
 
 
 ### Iterators
@@ -199,29 +216,224 @@ Although the standard does not give this object a name, we will call it an
 An iteration has a `value` property and must have a `done` property if the
 sequence has ended.
 
--   TODO ellaborate
--   TODO iteration indexes
+Iterators are an interface with many implementations.
+The canonical iterator yields the values from an array.
+
+```js
+var iterator = iterate([1, 2, 3]);
+var iteration = iterator.next();
+expect(iteration.value).toBe(1);
+iteration = iterator.next();
+expect(iteration.value).toBe(2);
+iteration = iterator.next();
+expect(iteration.value).toBe(3);
+iteration = iterator.next();
+expect(iteration.done).toBe(true);
+```
+
+We propose that an iteration might also have an optional `index` property.
+This would allow the iterator to provide some additional context from the
+source.
+
+```js
+var iterator = iterate("ABC");
+var iteration = iterator.next();
+expect(iteration.value).toBe("A");
+expect(iteration.index).toBe(0);
+iteration = iterator.next();
+expect(iteration.value).toBe("B");
+expect(iteration.index).toBe(1);
+iteration = iterator.next();
+expect(iteration.value).toBe("C");
+expect(iteration.index).toBe(2);
+```
+
+What distinguishes an iterator from an array is that it is **lazy**.
+They do not necessarily end.
+We can have iterators for non-terminating sequences, like counting or the
+fibonacci sequence.
+The `range` function produces a sequence of values within an interval and
+separated by a stride.
+
+```js
+function range(start, stop, step) {
+    return {next: function () {
+        var iteration;
+        if (start < stop) {
+            iteration = {value: start};
+            start += step;
+        } else {
+            iteration = {done: true};
+        }
+        return iteration;
+    }};
+}
+```
+
+If the `stop` value of the range is `Infinity`, the iterator will have no end,
+will never produce a `done` iteration.
+Unlike an array, an idefinite iterator consumes no more memory than an empty
+one.
+
+```js
+var iterator = range(0, Infinity, 1);
+expect(iterator.next().value).toBe(0);
+expect(iterator.next().value).toBe(1);
+expect(iterator.next().value).toBe(2);
+// ...
+```
+
+The **eager** equivalent would produce an array, but would only work for bounded
+intervals since it must create an exhaustive collection in memory before
+returning.
+
+```js
+function range(start, stop, step) {
+    var result = [];
+    while (start < stop) {
+        result.push(start);
+        start += step;
+    }
+    return result;
+}
+
+expect(range(0, 6, 2)).toEqual([0, 2, 4]);
+```
+
+Iterators may have alternate implementations of some methods familiar from
+arrays.
+For example, `forEach` would walk the iterator until it is exhausted.
+`map` would produce a new iterator of values passed through some transform,
+while `filter` would produce a new iterator of the values that pass a test.
+An iterator can support `reduce`, which would exhaust the iteration, but
+`reduceRight` would be less sensible since iterators only walk forward.
+Iterators may also have some methods that are unique to their character, like
+`dropWhile` and `takeWhile`.
+
+We can save time and space by implementing pipelines with iterators instead of
+arrays.
+The following example can be interpreted as either eager or lazy, depending on
+whether `range` returns an array or an iterator.
+If we start with an array, `map` will create another array of 1000 values and
+`filter` will create another large array.
+If we start with an iterator, we will never construct an array of any size,
+instead percolating one value at a time as the reducer pulls them from the
+filter, as the filter pulls them from the mapping, and as the mapping pulls them
+from the range.
+
+```js
+range(0, 1000, 1)
+.map(function (n) {
+    return n * 2;
+})
+.filter(function (n) {
+    return n % 3 !== 0;
+})
+.reduce(function (a, b) {
+    return a + b;
+})
+```
+
+-   TODO note the existence of comprehensions
 
 
 ### Generator Functions
 
--   TODO ellaborate
--   TODO iterations correspond to yield and return, while throw passes through.
-    This behavior is reflected later by asynchronous iterators.
-    The asynchronous iterator returns a promise for an iteration. The iteration
-    may either correspond to a yield or return, but the promise propagate a
-    thrown error.
--   TODO the iterator for a generator has both a next and a throw method.
-    The throw injects an error into the producer.
-    This feature is also captured by asynchronous buffers, allowing a consumer
-    to effectively cancel a producer.
--   Note that in Java, [iterators][Java Iterator] have a `hasNext()` method.
-    This is not implementable for generators owing to the [Halting Problem][].
-    Generators also upgrade `next()` to `next(value)`.
-    When a generator resumes from a `yield`, the value serves as the evaluation
-    of the yield expression.
-    The iterator for a generator also implements `throw(error)`, a method that
-    resumes the generator function by throwing an error.
+Consider the eager and lazy `range` function implementations.
+We lose a certain clarity when we convert the array range maker into an iterator
+range maker.
+Generator functions alleviate this problem by offering a way to express
+iterations procedurally, with a lazy behavior.
+
+A JavaScript engine near you may already support generator functions.
+The syntax consists of adding an asterisk to the function declaration and using
+`yield` to produce iterations.
+Calling a generator function does not execute the function, but instead sets up
+a state machine to track where we are in the function and returns an iterator.
+Whenever we ask the iterator for an iteration, the state machine will resume the
+execution of the function until it produces an iteration or terminates.
+
+```js
+function *range(start, stop, step) {
+    while (start < stop) {
+        yield start;
+        start += step;
+    }
+}
+
+var iterator = range(0, Infinity, 1);
+expect(iterator.next().value).toBe(0);
+expect(iterator.next().value).toBe(1);
+expect(iterator.next().value).toBe(2);
+// ...
+```
+
+Notice that the range generator function restores and perhaps even exceeds the
+clarity of the range array maker.
+
+Calling `next` has three possible outcomes.
+If the iterator encounters a `yield`, the iteration will have a `value`.
+If the iterator runs the function to either an express or implied `return`, the
+iteration will have a `value` and `done` will be true.
+If the iterator runs to an explicit return, this terminal iteration carries the
+return value.
+If the generator function throws an error, this will propagate out of `next()`.
+
+Generators and iterators are **unicast**.
+The consumer expects to see every value from the producer.
+Since generators and iterators cooperate, information flows both forward as
+values, and backward as requests for more values.
+
+However, the consumer can send other information back to the producer.
+The `next` method, familiar from basic iterators, gains the ability to determine
+the value of the `yield` expression from which the generator resumes.
+As a trivial example, consider a generator that echos whatever the consumer
+requests.
+
+```js
+function *echo() {
+    var message;
+    while (true) {
+        message = yield message;
+    }
+}
+
+var iterator = echo();
+expect(iterator.next().value).toBe(undefined);
+expect(iterator.next("Hello").value).toBe(undefined);
+expect(iterator.next("Goodbye").value).toBe("Hello");
+expect(iterator.next().value).toBe("Goodbye");
+expect(iterator.next().value).toBe(undefined);
+```
+
+We must prime the generator because it does not begin with a `yield`.
+We advance, the "program counter" to the first `yield` and allow it to produce
+the initial, undefined message.
+We then populate the message variable with a value, receiving its former
+undefined content again.
+Then we begin to see the fruit of our labor as the values we previously sent
+backward come forward again.
+This foreshadows the ability of stream readers to push back on stream writers.
+
+Additionally, the iterator gains a `throw` method that allows the iterator to
+terminate the generator by causing the `yield` expression to raise the given
+error.
+The error will pass through any try -catch or -finally blocks that exist within
+the generator and then out the `throw()` method call itself.
+This foreshadows the ability of a stream reader to prematurely stop a stream
+writer.
+
+-   TODO research what happens if the generator catches the exception.
+    Does `throw` return the next iteration if the error is handled?
+
+```js
+iterator.throw(new Error("Do not want!"));
+```
+
+Note that in Java, [iterators][Java Iterator] have a `hasNext()` method.
+This is not implementable for generators owing to the [Halting Problem][].
+The iterator must try to get a value from the generator before the generator can
+conclude that it cannot produce another value.
 
 [Java Iterator]: http://docs.oracle.com/javase/7/docs/api/java/util/Iterator.html
 [Halting Problem]: http://en.wikipedia.org/wiki/Halting_problem
@@ -230,21 +442,142 @@ sequence has ended.
 ### Generator
 
 There is no proposal for a standard generator, but for the sake of completeness,
-if an array iterator consumes an array, an array generator would build one.
-An array generator object would implement a `yield(value)` method.
+if an array iterator consumes an array, an array generator would lazilly produce
+one.
+An array generator object would implement `yield`, `return`, and `throw` as
+methods with behavior analogous to the same keywords within a generator
+function.
+The `yield` method would add a value to the array.
 
--   TODO ellaborate
--   TODO yield at index
+```js
+var array = [];
+var generator = generate(array);
+generator.yield(10);
+generator.yield(20);
+generator.yield(30);
+expect(array).toEqual([10, 20, 30]);
+```
+
+Note that ECMAScript 5, at Doug Crockford’s behest, allows JavaScript keywords
+to be used for property names.
+
+Just as iterations can carry an index from an array iterator, `yield` would
+accept an optional index argument.
+
+```js
+var array = [];
+var generator = generate(array);
+generator.yield(30, 2);
+generator.yield(20, 1);
+generator.yield(10, 0);
+expect(array).toEqual([10, 20, 30]);
+```
+
+And just as array iterators are just one implementation of the iterator
+interface, the generator interface could have many interfacets.
+Generator objects foreshadow the existence of stream writers.
+
+-   TODO find a place for: To mirror the ability of an iteration to carry an
+    `index`, I propose that the `next(value)` method support an optional index
+    argument, `next(value, index)`.
+
+
+### Asynchronous Promises
+
+-   TODO
 
 
 ### Asynchronous Functions
 
--   TODO ellaborate
--   TODO discuss using generators to make a promise trampoline with
-    Promise.async
--   TODO discuss proposed async await syntax
--   TODO discuss difference in precedence between yield and await
--   TODO foreshadow asynchronous promise generators
+Generator functions have existed in other languages, like Python, for quite some
+time, so folks have made some clever uses of them.
+We can combine promises and generator functions to emulate asynchronous
+functions.
+The key insight is a single, concise method that decorates a generator, creating
+an internal "promise trampoline".
+An asynchronous function returns a promise for the eventual return value, or the
+eventual thrown error, of the generator function.
+However, the function may yield promises to wait for intermediate values on its
+way to completion.
+The trampoline takes advantage of the ability of an iterator to send a value
+from `next` to `yield`.
+
+```js
+var authenticate = Promise.async(function *() {
+    var username = yield getUsernameFromConsole();
+    var user = getUserFromDatabase(username);
+    var password = getPasswordFromConsole();
+    [user, password] = yield Promise.all([user, password]);
+    return hash(password) === user.passwordHash;
+})
+```
+
+Mark Miller’s [implementation][Async] of the `async` decorator is succinct and
+insightful.
+We produce a wrapped function that will create a promise generator and proceed
+immediately.
+Each requested iteration has three possible outcomes: yield, return, or throw.
+Yield waits for the given promise and resumes the generator with the eventual
+value.
+Return stops the trampoline and returns the value, all the way out to the
+promise returned by the async function.
+If you yield a promise that eventually throws an error, the async function
+resumes the gnerator with that error, giving it a chance to recover.
+
+[Async]: http://wiki.ecmascript.org/doku.php?id=strawman:async_functions#reference_implementation
+
+```js
+Promise.async = function async(generate) {
+    return function () {
+        function resume(verb, argument) {
+            var result;
+            try {
+                result = generator[verb](argument);
+            } catch (exception) {
+                return Promise.throw(exception);
+            }
+            if (result.done) {
+                return result.value;
+            } else {
+                return Promise.return(result.value).then(donext, dothrow);
+            }
+        }
+        var generator = generate.apply(this, arguments);
+        var donext = resume.bind(this, "next");
+        var dothrow = resume.bind(this, "throw");
+        return donext();
+    };
+}
+```
+
+As much as JavaScript legitimizes the async promise generators by supporting
+returning and throwing, now that Promises are part of the standard, the powers
+that sit on the ECMAScript standards committee are contemplating special `async`
+and `await` syntax for this case.
+The syntax is inspired by the same feature of C#.
+
+```js
+var authenticate = async function () {
+    var username = await getUsernameFromConsole();
+    var user = getUserFromDatabase(username);
+    var password = getPasswordFromConsole();
+    [user, password] = await Promise.all([user, password]);
+    return hash(password) === user.passwordHash;
+})
+```
+
+One compelling reason to support special syntax is that `await` may have higher
+precedence than the `yield` keyword.
+
+```js
+async function addPromises(a, b) {
+    return await a + await b;
+}
+```
+
+By decoupling **async functions** from **generator functions**, JavaScript opens
+the door for **async generator functions**, foreshadowing a **plural** and
+**temporal** getter, a standard form for readable streams.
 
 
 ### Promise Queues
@@ -296,11 +629,11 @@ collection of results: values or thrown errors captured by promises.
 The queue is not particular about what those values mean and is a suitable
 primitive for many more interesting tools.
 
-Interface         |               |          |              |
------------------ | ------------- | -------- | ------------ |
-Queue             | Value         | Multiple | Asynchronous |
-queue.get         | Getter        | Multiple | Asynchronous |
-queue.put         | Setter        | Multiple | Asynchronous |
+Interface  |         |        |          |
+---------- | ------- | ------ | -------- |
+Queue      | Value   | Plural | Temporal |
+queue.get  | Getter  | Plural | Temporal |
+queue.put  | Setter  | Plural | Temporal |
 
 The implementation of a promise queue is sufficiently succinct that there’s no
 harm in embedding it here.
@@ -400,8 +733,8 @@ for another value from the producer.
 The following is a sketch to that effect.
 
 ```js
-var outbound = new Queue();
-var inbound = new Queue();
+var outbound = new PromiseQueue();
+var inbound = new PromiseQueue();
 var buffer = {
     iterator: {
         next: function (value) {
@@ -439,7 +772,7 @@ var buffer = {
 };
 ```
 
-So a buffer fits nicely in the realm of reactive interfaces.
+So a buffer fits in the realm of reactive interfaces.
 A buffer has an asynchronous iterator, which serves as the getter side.
 It also has an asynchronous generator, which serves as the setter dual.
 The buffer itself is akin to an asynchronous, plural value.
@@ -551,7 +884,6 @@ Consider also that a reader may be a proxy for a remote reader.
 
 
 ### Promise Generator Functions
-
 
 -   TODO, answer https://docs.google.com/file/d/0B4PVbLpUIdzoMDR5dWstRllXblU/edit
     Suffice it to say for now, if ECMAScript allows `async *f() {await yield}`,
