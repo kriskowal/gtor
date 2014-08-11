@@ -335,8 +335,6 @@ range(0, 1000, 1)
 })
 ```
 
--   TODO note the existence of comprehensions
-
 
 ### Generator Functions
 
@@ -419,13 +417,12 @@ This foreshadows the ability of stream readers to push back on stream writers.
 Additionally, the iterator gains a `throw` method that allows the iterator to
 terminate the generator by causing the `yield` expression to raise the given
 error.
-The error will pass through any try- catch or finally blocks that exist within
-the generator and then out the `throw()` method call itself.
+The error will pass through any try- catch or finally blocks in the generators
+stack, and unless handled, through your own stack.
+As such, like `next`, the `throw` method may either return an iterator or throw
+an error.
 This foreshadows the ability of a stream reader to prematurely stop a stream
 writer.
-
--   TODO research what happens if the generator catches the exception.
-    Does `throw` return the next iteration if the error is handled?
 
 ```js
 iterator.throw(new Error("Do not want!"));
@@ -440,7 +437,7 @@ conclude that it cannot produce another value.
 [Halting Problem]: http://en.wikipedia.org/wiki/Halting_problem
 
 
-### Generator
+### Generators
 
 There is no proposal for a standard generator, but for the sake of completeness,
 if an array iterator consumes an array, an array generator would lazilly produce
@@ -478,14 +475,105 @@ And just as array iterators are just one implementation of the iterator
 interface, the generator interface could have many interfacets.
 Generator objects foreshadow the existence of stream writers.
 
--   TODO find a place for: To mirror the ability of an iteration to carry an
-    `index`, I propose that the `next(value)` method support an optional index
-    argument, `next(value, index)`.
 
+### Asynchronous Values
 
-### Asynchronous Promises
+The asynchronous analogue of a getter is a promise.
+Each promise has a corresponding resolver as its asynchronous setter.
+Collectively the promise and resolver are a deferred value.
 
--   TODO
+The salient method of a promise is `then`, which creates a new promise for the
+result of a function that will eventually observe the value of the promise.
+If a promise were plural, the `then` method might be called `map`.
+
+```js
+var promiseForThirty = promiseForTen.then(function (ten) {
+    return ten + 20;
+})
+```
+
+Promises can also have a `done` method that observes the value but does not
+return a promise nor captures the result of the observer.
+Again, if a promise were plural, the `done` method might be called `forEach`.
+
+```js
+promiseForTen.done(function (ten) {
+});
+```
+
+The `then` method also supports a second function that would observe whether the
+input promise radiates an exception, and there is a `catch` method to use as a
+shorthand if you are only interested in catching errors.
+
+```js
+promise.then(onreturn, onthrow);
+promise.catch(onthrow);
+```
+
+In keeping with the design of `forEach` and `map` in JavaScript, the `then` and
+`catch` methods might also take a `thisp`, an object to use as `this` in the
+observer functions.
+
+```js
+array.forEach(onyield, thisp);
+promise.then(onreturn, onthrow, thisp);
+```
+
+A resolver is the singular analogue of a generator.
+Rather than yielding, returning, and throwing errors, the resolver can only
+return or throw.
+
+```js
+resolver.return(10);
+resolver.throw(new Error("Sorry, please return during business hours."));
+```
+
+A deferred value can be deferred further by resolving it with another promise.
+This can occur either expressly through the resolver, or implicitly by returning
+a promise as the result of a observer function.
+
+```js
+var authenticated = getUsernameFromConsole()
+.then(function (username) {
+    return Promise.all([
+       getUserFromDatabase(username),
+       getPasswordFromConsole()
+    ])
+    .then(function ([user, password]) {
+        if (hash(password) !== user.passwordHash) {
+            throw new Error("Can't authenticate because the password is invalid");
+        }
+    })
+})
+```
+
+The `then` method internally creates a new deferred, returns the promise, and
+later forwards the return value of the observer to the resolver.
+
+```js
+var userPromise = getUserFromDatabase(username);
+var userDeferred = new Deferred();
+var resolver = userDeferred.resolver;
+resolver.return(userPromise);
+return userDeferred.promise;
+```
+
+With a promise, information flows only from the first call to a resolver method
+to all promise observers, whether they are registered before or after the
+resolution.
+
+With a task, information flows from the first call to a resolver method to the
+first call to an observer method, regardless of their relative order, but one
+kind of information can flow upstream.
+The observer may unsubscribe with an error.
+This is conceptually similar to throwing an error back into a generator from an
+iterator and warrants the same interface.
+
+```js
+task.throw(new Error("Never mind"));
+```
+
+This interface foreshadows its plural analogue: streams.
 
 
 ### Asynchronous Functions
@@ -504,12 +592,14 @@ The trampoline takes advantage of the ability of an iterator to send a value
 from `next` to `yield`.
 
 ```js
-var authenticate = Promise.async(function *() {
+var authenticated = Promise.async(function *() {
     var username = yield getUsernameFromConsole();
     var user = getUserFromDatabase(username);
     var password = getPasswordFromConsole();
     [user, password] = yield Promise.all([user, password]);
-    return hash(password) === user.passwordHash;
+    if (hash(password) !== user.passwordHash) {
+        throw new Error("Can't authenticate because the password is invalid");
+    }
 })
 ```
 
@@ -739,9 +829,10 @@ var outbound = new PromiseQueue();
 var inbound = new PromiseQueue();
 var buffer = {
     iterator: {
-        next: function (value) {
+        next: function (value, index) {
             outbound.put({
                 value: value,
+                index: index,
                 done: false
             });
             return inbound.get();
@@ -752,9 +843,10 @@ var buffer = {
         }
     },
     generator: {
-        yield: function (value) {
+        yield: function (value, index) {
             inbound.put({
                 value: value,
+                index: index,
                 done: false
             })
             return outbound.get();
@@ -794,17 +886,30 @@ Promise Generator | Setter  | Plural   | Temporal     |
 A buffer has a reader and writer, but there are implementations of reader and
 writer that interface with the outside world, mostly files and sockets.
 
+Note that `next` and `yield` are duals.
+I previously proposed an extension to iterators that would allow an iteration to
+carry the `index` for each `value` from an array or similar source.
+I also proposed that a generator object would implement `yield(value, index)`
+such that it could produce such indexes with an optional second argument.
+Since `next` is the dual of `yield`, it would be able to send an `index` back to
+the producer.
+
 
 ### Promise Iterators
 
-One very important PromiseIterator turns a spatial iterator into the
-temporal dimension so it can be consumed lazilly over time.
+One very important PromiseIterator lift a spatial iterator into the temporal
+dimension so it can be consumed on demand over time.
 In this sketch, we just convert a synchronous `next` method to a method that
 returns a promise for the next iteration instead.
+We use a mythical `iterate` function which would create iterators for all
+sensible JavaScript objects and delegate to the `iterate` method of anything
+else that implements it.
+There is talk of using symbols in ES7 to avoid recognizing accidental iterables
+as this new type of duck.
 
 ```js
 function PromiseIterator(iterable) {
-    this.iterator = iterable.iterate();
+    this.iterator = iterate(iterable);
 }
 PromiseIterator.prototype.next = function () {
     return Promise.resolve(this.iterator.next());
@@ -818,6 +923,8 @@ However, consider that a synchronous iterator might, apart from implementing
 Likewise, an asynchronous iterator might provide analogues to these functions
 lifted into the asynchronous realm.
 
+#### map
+
 For example, asynchronous `map` would consume iterations and run jobs on each of
 those iterations using the callback.
 However, unlike a synchronous `map`, the callback might return a promise for
@@ -830,16 +937,46 @@ consumed, and that the `map` can schedule additional work.
 An asynchronous `map` would accept an additional argument that would limit the
 number of concurrent jobs.
 
-Synchronous `forEach` does not produce an output collection or iterator as it
-does on `Array` and `Iterator`.
+#### forEach
+
+Synchronous `forEach` does not produce an output collection or iterator.
 However, it does return `undefined` *when it is done*.
 Of course synchronous functions are implicitly completed when they return,
-but asynchronous functions are done when the promise they return settles.
-Asynchronous `forEach` would return a promise.
+but asynchronous functions are done when the asynchronous value they return
+settles.
+
+Asynchronous `forEach` would return a task.
+Since streams are **unicast**, it stands to reason that the asynchonous result
+of `forEach` on a stream would be able to propagate a cancellation upstream,
+stopping the flow of data from the producer side.
+Of course, the task can be easily forked or coerced into a promise if it needs
+to be shared freely among multiple consumers.
+
+```js
+var task = reader.forEach(function (n) {
+    // ...
+})
+var subtask = task.fork();
+var promise = Promise.return(task);
+```
+
 Like `map` it would execute a job for each iteration, but by default it would
 perform these jobs in serial.
 Asynchronous `forEach` would also accept an additional argument that would
 *expand* the number of concurrent jobs.
+In this example, we would reach out to the database for 10 user records at any
+given time.
+
+```js
+reader.forEach(function (username) {
+    return database.getUser(username)
+    .then(function (user) {
+        console.log(user.lastModified);
+    })
+}, null, 10);
+```
+
+#### reduce
 
 Asynchronous `reduce` would aggregate values from the input reader, returning a
 promise for the composite value.
@@ -855,6 +992,8 @@ would come from the input.
 The second value would come unconditionally from the input.
 Whenever a job completes, the result would be placed back in the pool.
 
+#### pipe
+
 An asynchronous iterator would have additional methods like `copy` or `pipe`
 that would send iterations from this reader to another writer.
 It would have `buffer` which would construct a buffer with some capacity.
@@ -863,6 +1002,8 @@ prefetching values from its producer.
 If the producer is faster than the consumer, this can help avoid round trip
 latency when the consumer needs a value from the producer.
 
+#### read
+
 Just as it is useful to transform a synchronous collection into an iterator and
 an iterator into a reader, it is also useful to go the other way.
 An asynchronous iterator would also have methods that would return a promise for
@@ -870,27 +1011,104 @@ a collection of all the values from the source, for example `all`, or in the
 case of readers that iterate collections of bytes or characters, `join` or
 `read`.
 
-Consider also that a reader may be a proxy for a remote reader.
 
--   TODO stream forking
--   TODO stream operator lifting
+#### Remote iterators
+
+Consider also that a reader may be a proxy for a remote reader.
+A promise iterator be easily backed by a promise for a remote object.
+
+```js
+function RemotePromiseIterator(promise) {
+    this.remoteIteratorPromise = promise.invoke("iterate");
+}
+RemotePromiseIterator.prototype.next = function (value, index) {
+    return this.remoteIteratorPromise.invoke("next");
+};
+
+var remoteReader = remoteFilesystem.invoke("open", "primes.txt");
+var reader = new RemotePromiseIterator(remoteReader);
+reader.forEach(console.log);
+```
+
+Apart from `then` and `done`, promises provide methods like `get`, `call`, and
+`invoke` to allow promises to be created from promises and for messages to be
+pipelined to remote objects.
+An `iterate` method should be a part of that protocol to allow values to be
+streamed on demand over any message channel.
 
 
 ### Promise Generators
 
+A promise generator is analogous in all ways to a plain generator.
+Promise generators implement `yield`, `return`, and `throw`.
+The return and throw methods both terminate the stream.
+Yield accepts a value and an index.
+They all return promises for an acknowledgement iteration from the consumer.
+Waiting for this promise to settle causes the producer to idle long enough for
+the consumer to process the data.
 
--   TODO promise generators
--   TODO promise buffers are unicast, so cancelable
--   TODO promise iterator forEach and reduce may return a task that can
-    propagate cancelation back to the promise iterator.
+One can increase the number of promises that can be held in flight by a promise
+buffer.
+The buffer constructor takes a `length` argument that primes the acknowledgement
+queue, allowing you to send that number of values before having to wait for the
+consumer to flush.
+
+```js
+var buffer = new Buffer(1024);
+function fibStream(a, b, index) {
+    return buffer.in.yield(a)
+    .then(function () {
+        return fibStream(b, a + b, index + 1);
+    });
+}
+fibStream(1, 1, 0).done();
+return buffer.out;
+```
+
+If the consumer would like to terminate the producer prematurely, it calls the
+`throw` method on the corresponding promise iterator.
+This will eventually propagate back to the promise returned by the generator’s
+`yield`, `return`, or `throw`.
+
+```js
+buffer.out.throw(new Error("That's enough, thanks"));
+```
 
 
 ### Promise Generator Functions
 
--   TODO, answer https://docs.google.com/file/d/0B4PVbLpUIdzoMDR5dWstRllXblU/edit
-    Suffice it to say for now, if ECMAScript allows `async *f() {await yield}`,
-    the awaits should trampoline internally and the yields should send values
-    (not necessarily promises) to an asynchronous iterator.
+A promise generator function combines the features of an asynchronous function
+with a generator function.
+That is to say, it uses both `await` and `yield`.
+The `await` term allows the function to idle until some asynchronous work has
+settled, and the `yield` allows the function to produce a value.
+An asynchronous generator returns a promise iterator, the output side of a
+stream.
+
+This example will fetch quotes from the works of Shakespeare, retrieve quotes
+from each work, and push those quotes out to the consumer.
+Note that the `yield` expression returns a promise for the value to flush, so
+awaiting on that promise allows the generator to pause until the consumer
+catches up.
+
+```js
+async function *shakespeare(titles) {
+    for (title of titles) {
+        var quotes = await getQuotes(title);
+        for (quote of quotes) {
+            await yield quote;
+        }
+    }
+}
+
+var reader = shakespeare(["Hamlet", "Macbeth", "Othello"]);
+reader.reduce(function (length, quote) {
+    return length + quote.length;
+}, 0, null, 100)
+.then(function (totalLength) {
+    console.log(totalLength);
+});
+```
 
 
 ### Observables
@@ -1538,5 +1756,8 @@ var progress = (now - start) / (estimate - start);
 -   TODO hot vs cold https://github.com/Reactive-Extensions/RxJS/blob/master/doc/gettingstarted/creating.md#cold-vs-hot-observables
 -   TODO dispose vs cancel
 -   TODO http://conal.net/ Conal Elliott
-
+-   TODO promise status labels on the then method, then(onreturn?, onthrow?,
+    thisp?, label?, ms?)
+-   TODO stream operator lifting
+-   TODO stream forking
 
