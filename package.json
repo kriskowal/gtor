@@ -10,5 +10,11 @@
     "docco": "^0.6.3",
     "jasminum": "^2.0.5",
     "weak-map": "^1.0.5"
+  },
+  "devDependencies": {
+    "docco": "^0.6.3"
+  },
+  "scripts": {
+    "docco": "docco *.js"
   }
 }
