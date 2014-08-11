@@ -1077,9 +1077,17 @@ buffer.out.throw(new Error("That's enough, thanks"));
 
 ### Promise Generator Functions
 
-A promise generator function combines the features of an asynchronous function
-with a generator function.
-That is to say, it uses both `await` and `yield`.
+Jafar Husain recently [asked the ECMAScript committee][JH], whether generator
+functions and async functions were composable, and if so, how they should
+compose.
+One of the key questions was whether an async generator should return a promise
+for an iterator or an iterator that produces promises.
+We draw many of the same conclusions.
+In the context of this framework, the answer is clear.
+
+[JH]: https://docs.google.com/file/d/0B4PVbLpUIdzoMDR5dWstRllXblU
+
+An asynchronous generator function uses both `await` and `yield`.
 The `await` term allows the function to idle until some asynchronous work has
 settled, and the `yield` allows the function to produce a value.
 An asynchronous generator returns a promise iterator, the output side of a
@@ -1128,6 +1136,9 @@ reader.reduce(function (length, quote) {
     console.log(totalLength);
 });
 ```
+
+It may be valuable for a yield to implicitly await on both the value it takes in
+and the promise it evaluates to.
 
 
 ### Observables
