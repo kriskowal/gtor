@@ -1085,6 +1085,25 @@ settled, and the `yield` allows the function to produce a value.
 An asynchronous generator returns a promise iterator, the output side of a
 stream.
 
+Recall that an iterator returns an iteration, but a promise iterator returns a
+promise for an iteration, and also a promise generator returns a similar promise
+for the acknowledgement from the iterator.
+
+```js
+promiseIterator.next()
+.then(function (iteration) {
+    console.log(iteration.value, "at", iteration.index);
+    if (iteration.done) {
+        console.log("fin");
+    }
+});
+
+promiseGenerator.yield("alpha", 0)
+.then(function (iteration) {
+    console.log("iterator has consumed alpha at index 0");
+});
+```
+
 This example will fetch quotes from the works of Shakespeare, retrieve quotes
 from each work, and push those quotes out to the consumer.
 Note that the `yield` expression returns a promise for the value to flush, so
