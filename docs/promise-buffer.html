@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>promise-buffer.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+      <ul id="jump_to">
+        <li>
+          <a class="large" href="javascript:void(0);">Jump To &hellip;</a>
+          <a class="small" href="javascript:void(0);">+</a>
+          <div id="jump_wrapper">
+          <div id="jump_page">
+            
+              
+              <a class="source" href="byte-buffer.html">
+                byte-buffer.js
+              </a>
+            
+              
+              <a class="source" href="example.html">
+                example.js
+              </a>
+            
+              
+              <a class="source" href="generators.html">
+                generators.js
+              </a>
+            
+              
+              <a class="source" href="iteration.html">
+                iteration.js
+              </a>
+            
+              
+              <a class="source" href="iterator.html">
+                iterator.js
+              </a>
+            
+              
+              <a class="source" href="long-stack.html">
+                long-stack.js
+              </a>
+            
+              
+              <a class="source" href="observable-methods.html">
+                observable-methods.js
+              </a>
+            
+              
+              <a class="source" href="observable.html">
+                observable.js
+              </a>
+            
+              
+              <a class="source" href="observer.html">
+                observer.js
+              </a>
+            
+              
+              <a class="source" href="operators.html">
+                operators.js
+              </a>
+            
+              
+              <a class="source" href="promise-buffer.html">
+                promise-buffer.js
+              </a>
+            
+              
+              <a class="source" href="promise-generator.html">
+                promise-generator.js
+              </a>
+            
+              
+              <a class="source" href="promise-iterator.html">
+                promise-iterator.js
+              </a>
+            
+              
+              <a class="source" href="promise-machine.html">
+                promise-machine.js
+              </a>
+            
+              
+              <a class="source" href="promise-queue.html">
+                promise-queue.js
+              </a>
+            
+              
+              <a class="source" href="promise.html">
+                promise.js
+              </a>
+            
+              
+              <a class="source" href="signal.html">
+                signal.js
+              </a>
+            
+              
+              <a class="source" href="task.html">
+                task.js
+              </a>
+            
+          </div>
+        </li>
+      </ul>
+    
+    <ul class="sections">
+        
+          <li id="title">
+              <div class="annotation">
+                  <h1>promise-buffer.js</h1>
+              </div>
+          </li>
+        
+        
+        
+        <li id="section-1">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-1">&#182;</a>
+              </div>
+              
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+              <p>A promise buffer is an asynchronous stream of objects.</p>
+<p>A promise buffer is <strong>unicast</strong>, in the sense that it is a cooperation
+between a single producer and a single consumer, mediated by the buffer to
+control the throughput of both sides.</p>
+<p>Since a promise buffer is unicast, it is also <strong>cancelable</strong>.
+The iterator side of the promise buffer has the ability to prematurely
+terminate the generator by throwing an exception back.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-pi">
+"use strict"</span>;
+
+<span class="hljs-keyword">var</span> Iteration = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./iteration"</span>);
+<span class="hljs-keyword">var</span> Promise = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./promise"</span>);
+<span class="hljs-keyword">var</span> PromiseQueue = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./promise-queue"</span>);
+<span class="hljs-keyword">var</span> Signal = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./signal"</span>);
+<span class="hljs-keyword">var</span> Task = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./task"</span>);
+<span class="hljs-keyword">var</span> WeakMap = <span class="hljs-built_in">require</span>(<span class="hljs-string">"weak-map"</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <p>Promise buffers use an internal handler object, shared by its internal
+iterator and generator, that tracks shared private state.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">var</span> handlers = <span class="hljs-keyword">new</span> WeakMap();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <h2 id="promisebuffer">PromiseBuffer</h2>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <p>The first argument of a promise buffer may either be a number or an iterable
+which is used to “prime” the buffer up to a certain size or with certain
+content.
+These values, or this quantity of undefined values, initializes the queue of
+promises that will be returned by the generator, allowing the generator to
+get ahead of the consumer, filling the buffer up to this size before
+pressure from the consumer pushes back.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-built_in">module</span>.exports = PromiseBuffer;
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">PromiseBuffer</span><span class="hljs-params">(values)</span> </span>{
+    <span class="hljs-keyword">if</span> (!(<span class="hljs-keyword">this</span> <span class="hljs-keyword">instanceof</span> PromiseBuffer)) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> PromiseBuffer();
+    }
+    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Handler(values);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+              <p>A promise buffer has an input side and an output side.
+The output is analogous to an iterator, but instead of producing
+iterations, it produces promises for iterations.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.out = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Iterator(handler, <span class="hljs-keyword">this</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+              <p>The input is analogous to a generator, but <code>yield</code>, <code>return</code>, and
+<code>throw</code> all return promises for returning iterations, indicating when
+and whether the producer should proceed, and perhaps carrying
+information back to the producer.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.in = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Generator(handler, <span class="hljs-keyword">this</span>);
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <p>The Handler, Iterator, and Generator constructors can be overridden but note
+that only the proper Iterator, Generator, and Handler constructors have
+access to the internal handler map.
+Overridden constructors are responsible for calling their super constructor.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseBuffer.prototype.Handler = PromiseBufferHandler;
+PromiseBuffer.prototype.Iterator = PromiseIterator;
+PromiseBuffer.prototype.Generator = PromiseGenerator;
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">PromiseBufferHandler</span><span class="hljs-params">(values)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+              <p>The buffer has two internal promise queues that ferry iterations.
+The input queue ferries data iterations from the producer to the
+consumer.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.in = <span class="hljs-keyword">new</span> PromiseQueue();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-10">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+              <p>The output queue ferries acknowledgement or flush iterations from the
+consumer to the producer.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.out = <span class="hljs-keyword">new</span> PromiseQueue();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-11">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-11">&#182;</a>
+              </div>
+              <p>If the constructor provided a buffer size, we prime the output queue
+with that quantity of undefined iterations.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> values === <span class="hljs-string">"number"</span>) {
+        <span class="hljs-keyword">while</span> (values--) {
+            <span class="hljs-keyword">this</span>.prime();
+        }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-12">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+              <p>If the constructor provides any other value, we assume that it is
+iterable and implements forEach, which we use to populate the
+acknowledgement queue, with both the value and the index of each input
+value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (values) {
+        values.forEach(<span class="hljs-keyword">this</span>.prime, <span class="hljs-keyword">this</span>);
+    }
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-13">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-13">&#182;</a>
+              </div>
+              <p>The prime method, used above by the handler constructor to initialize the
+acknowledgement queue, allowing the producer to get ahead of the consumer by
+an iteration.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseBufferHandler.prototype.prime = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">this</span>.out.put(<span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Iteration(value, <span class="hljs-literal">false</span>, index));
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-14">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-14">&#182;</a>
+              </div>
+              <p>The get method is used by the iterator side to put an iteration on the
+acnowledgement queue and take a promise for an iteration off the data queue.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseBufferHandler.prototype.get = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{
+    <span class="hljs-keyword">this</span>.in.put(iteration);
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.out.get();
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-15">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-15">&#182;</a>
+              </div>
+              <p>The put method is used by the generator side to put an iteration on the data
+queue and take a promise off the acknowledgement queue.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseBufferHandler.prototype.put = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{
+    <span class="hljs-keyword">this</span>.out.put(iteration);
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.in.get();
+};
+
+PromiseBufferHandler.prototype.Iteration = Iteration;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-16">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-16">&#182;</a>
+              </div>
+              <h2 id="promisegenerator">PromiseGenerator</h2>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-17">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-17">&#182;</a>
+              </div>
+              <p>A promise generator implements the same interface as a synchronous generator
+except that each of its methods, <code>yield</code>, <code>return</code>, and <code>throw</code>, return
+promises that the generator should wait for before proceeding, indcating
+when and whether the consumer is ready for more data.
+These promises may eventually throw, indicating that the generator should
+stop prematurely.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">PromiseGenerator</span><span class="hljs-params">(handler, parent)</span> </span>{
+    handlers.set(<span class="hljs-keyword">this</span>, handler);
+    <span class="hljs-keyword">this</span>.parent = parent;
+    <span class="hljs-keyword">this</span>.yield = <span class="hljs-keyword">this</span>.yield.bind(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">this</span>.return = <span class="hljs-keyword">this</span>.return.bind(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">this</span>.throw = <span class="hljs-keyword">this</span>.throw.bind(<span class="hljs-keyword">this</span>);
+}
+
+PromiseGenerator.prototype.Promise = Promise;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-18">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-18">&#182;</a>
+              </div>
+              <p>Sends a data iteration to the iterator, with a given value and optional
+index.
+Returns a promise for when and whether to proceed.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseGenerator.prototype.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.put(<span class="hljs-keyword">new</span> handler.Iteration(value, <span class="hljs-literal">false</span>, index));
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-19">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-19">&#182;</a>
+              </div>
+              <p>Informs the iterator that the stream has gracefully concluded, optionally
+with a return value.
+Returns a promise for when and whether to proceed.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseGenerator.prototype.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.put(<span class="hljs-keyword">new</span> handler.Iteration(value, <span class="hljs-literal">true</span>));
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-20">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-20">&#182;</a>
+              </div>
+              <p>Sends an eventual error instead of an iteration to the consumer, indicating
+that the generator terminated without grace.
+Returns a promise for when and whether to proceed.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseGenerator.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.put(<span class="hljs-keyword">this</span>.Promise.throw(error || <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Producer canceled stream"</span>)));
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-21">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-21">&#182;</a>
+              </div>
+              <h2 id="promiseiterator">PromiseIterator</h2>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-22">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-22">&#182;</a>
+              </div>
+              <p>A promise iterator implements the same interface as a synchronous iterator
+except that instead of returning iterations, it returns promises for
+iterations.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">PromiseIterator</span><span class="hljs-params">(handler, parent)</span> </span>{
+    handlers.set(<span class="hljs-keyword">this</span>, handler);
+    <span class="hljs-keyword">this</span>.parent = parent;
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-23">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-23">&#182;</a>
+              </div>
+              <p>Requests a promise for the next iteration from the generator side, and sends
+an acknowledgement iteration back to the generator so that it may produce
+another iteration.
+The acknowledgement may carry a value and optionally the index of that
+value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseIterator.prototype.next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.get(<span class="hljs-keyword">new</span> handler.Iteration(value, <span class="hljs-literal">false</span>, index));
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-24">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-24">&#182;</a>
+              </div>
+              <p>Sends an eventual error back to the generator requesting premature
+termination, possibly canceling or aborting the generator.
+Returns a promise for the next iteration if the generator recovers from the
+thrown error.
+Otherwise, the generator should propagate the error back to the iterator.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>PromiseIterator.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.put(Promise.throw(error || <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Consumer canceled stream"</span>)));
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-25">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-25">&#182;</a>
+              </div>
+              <hr>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-26">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-26">&#182;</a>
+              </div>
+              
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-27">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-27">&#182;</a>
+              </div>
+              <p>All methods hereafter are defined in terms of the primitive <code>next</code>.</p>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-28">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-28">&#182;</a>
+              </div>
+              <h3 id="copy-or-pipe">copy or pipe</h3>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-29">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-29">&#182;</a>
+              </div>
+              <p>The <code>copy</code> method pipes data from this iterator into the given generator and
+returns a cancelable task for the completion of the copy.
+Optionally, <code>copy</code> may forward this stream’s return value to the generator
+upon completion.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-comment">/* TODO consider naming this pipe or pipeTo */</span>
+PromiseIterator.prototype.copy = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(generator, options)</span> </span>{
+    <span class="hljs-keyword">var</span> done = <span class="hljs-keyword">this</span>.forEach(generator.yield, generator);
+    <span class="hljs-comment">/* TODO consider naming the option `return` */</span>
+    <span class="hljs-keyword">if</span> (!options || options.close !== <span class="hljs-literal">false</span>) {
+        done = done.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+            <span class="hljs-keyword">return</span> generator.return(value);
+        });
+    }
+    <span class="hljs-keyword">return</span> done;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-30">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-30">&#182;</a>
+              </div>
+              <p>The pipe as in <code>pipeThrough</code> idea is a bit of a bust because using .map does
+the same job as passing an equivalent PromiseMachine with buffered input and
+output but doesn’t have the dangling promise and silent errors.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-comment">/*
+PromiseIterator.prototype.pipe = function (pipe, options) {
+    this.copy(pipe.in, options); // a cancelable promise dangles here
+    return pipe.out;
+};
+*/</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-31">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-31">&#182;</a>
+              </div>
+              <h3 id="do">do</h3>
+<p>The <code>do</code> method is a utility for <code>forEach</code> and <code>map</code>, responsible for
+setting up an appropriate semaphore for the concurrency limit.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+PromiseIterator.prototype.do = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, errback, limit)</span> </span>{
+    <span class="hljs-keyword">var</span> next;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-32">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-32">&#182;</a>
+              </div>
+              <p>If there is no concurrency limit, we are free to batch up as many jobs
+as the producer can create.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (limit == <span class="hljs-literal">null</span>) {
+        next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.next()
+            .then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-33">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-33">&#182;</a>
+              </div>
+              <p>Before even beginning the job, we start waiting for another
+value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                next.call(<span class="hljs-keyword">this</span>);
+                <span class="hljs-keyword">return</span> callback(iteration);
+            }, <span class="hljs-literal">null</span>, <span class="hljs-keyword">this</span>)
+        };
+    } <span class="hljs-keyword">else</span> {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-34">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-34">&#182;</a>
+              </div>
+              <p>If there is a concurrency limit, we will use a promise queue as a
+semaphore.  We will enqueue a value representing a resource
+(undefined) for each concurrent task.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">var</span> semaphore = <span class="hljs-keyword">new</span> PromiseQueue();
+        <span class="hljs-keyword">while</span> (limit--) {
+            semaphore.put();
+        }
+        next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-35">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-35">&#182;</a>
+              </div>
+              <p>Whenever a resource is available from the queue, we will start
+another job.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="hljs-keyword">return</span> semaphore.get()
+            .then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(resource)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-36">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-36">&#182;</a>
+              </div>
+              <p>Each job begins with waiting for a value from the iterator.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.next()
+                .then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-37">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-37">&#182;</a>
+              </div>
+              <p>Once we have begun a job, we can begin waiting for
+another job.
+A resource may already be available on the queue.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    next.call(<span class="hljs-keyword">this</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-38">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-38">&#182;</a>
+              </div>
+              <p>We pass the iteration forward to the callback, as
+defined by either <code>forEach</code> or <code>map</code>, to handle the
+iteration appropriately.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    <span class="hljs-keyword">return</span> Promise.try(callback, <span class="hljs-literal">null</span>, iteration)
+                    .finally(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-39">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-39">&#182;</a>
+              </div>
+              <p>And when the job is complete, we will put a resource
+back on the semaphore queue, allowing another job to
+start.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                        semaphore.put(resource);
+                    })
+                }, <span class="hljs-literal">null</span>, <span class="hljs-keyword">this</span>);
+            }, <span class="hljs-literal">null</span>, <span class="hljs-keyword">this</span>)
+            .done(<span class="hljs-literal">null</span>, errback);
+        }
+    }
+    next.call(<span class="hljs-keyword">this</span>);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-40">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-40">&#182;</a>
+              </div>
+              <h3 id="foreach">forEach</h3>
+<p>The <code>forEach</code> method will execute jobs, typically in serial, and returns a
+cancelable promise (<code>Task</code>) for the completion of all jobs.
+The default concurrency limit is 1, making <code>forEach</code> as serial as it is for
+arrays, but can be expanded by passing a number in the third argument
+position.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+PromiseIterator.prototype.forEach = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, thisp, limit)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-41">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-41">&#182;</a>
+              </div>
+              <p>We create a task for the result.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> result = Task.defer(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-42">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-42">&#182;</a>
+              </div>
+              <p>If the task is canceled, we will propagate the error back to the
+generator.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">this</span>.throw(error);
+    }, <span class="hljs-keyword">this</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-43">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-43">&#182;</a>
+              </div>
+              <p>The default concurrency limit is 1.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (limit == <span class="hljs-literal">null</span>) { limit = <span class="hljs-number">1</span>; }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-44">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-44">&#182;</a>
+              </div>
+              <p>We will use signals to track the number of outstanding jobs and whether
+we have seen the last iteration.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = <span class="hljs-keyword">new</span> Signal(<span class="hljs-number">0</span>);
+    <span class="hljs-keyword">var</span> done = <span class="hljs-keyword">new</span> Signal(<span class="hljs-literal">false</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-45">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-45">&#182;</a>
+              </div>
+              <p>We will capture the return value in scope.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> returnValue;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-46">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-46">&#182;</a>
+              </div>
+              <p>Using the do utility function to limit concurrency and give us
+iterations, or prematurely terminate, in which case we forward the error
+to the result task.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.do(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-47">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-47">&#182;</a>
+              </div>
+              <p>If this was the last iteration, capture the return value and
+dispatch the done signal.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (iteration.done) {
+            returnValue = iteration.value;
+            done.in.yield(<span class="hljs-literal">true</span>);
+        } <span class="hljs-keyword">else</span> {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-48">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-48">&#182;</a>
+              </div>
+              <p>Otherwise, we start a new job.
+Incrementing the number of outstanding jobs.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            count.in.inc();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-49">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-49">&#182;</a>
+              </div>
+              <p>Kick off the job, passing the callback argument pattern familiar
+to users of arrays, but allowing the task to return a promise to
+push back on the producer.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="hljs-keyword">return</span> Promise.try(callback, thisp, iteration.value, iteration.index)
+            .finally(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-50">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-50">&#182;</a>
+              </div>
+              <p>And then decrementing the outstanding job counter,
+regardless of whether the job succeeded.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                count.in.dec();
+            })
+        }
+    }, result.in.throw, limit);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-51">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-51">&#182;</a>
+              </div>
+              <p>We have not completed the task until all outstanding jobs have completed
+and no more iterations are available.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    count.out.equals(Signal.return(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{
+        <span class="hljs-keyword">if</span> (done) {
+            result.in.return(returnValue);
+        }
+    });
+    <span class="hljs-keyword">return</span> result.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-52">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-52">&#182;</a>
+              </div>
+              <h3 id="map">map</h3>
+<p>The <code>map</code> method runs jobs in parallel, taking values from this iterator and
+sending them to the returned promise iterator.
+There is no default limit to concurrency, but you can pass a number.
+Also, the order in which values pass from the input to the output is
+determined by how quickly the jobs are processed.
+However, the index of the input iterations propagates to the output
+iterations.
+A concurrency limit of 1 will ensure that order is preserved.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+PromiseIterator.prototype.map = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, thisp, limit)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-53">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-53">&#182;</a>
+              </div>
+              <p>We use our own PromiseBuffer constructor so subtypes can alter behavior.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> result = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.parent.constructor();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-54">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-54">&#182;</a>
+              </div>
+              <p>As with <code>forEach</code>, we track the number of outstanding jobs and whether
+we have seen the last iteration.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = <span class="hljs-keyword">new</span> Signal(<span class="hljs-number">0</span>);
+    <span class="hljs-keyword">var</span> done = <span class="hljs-keyword">new</span> Signal(<span class="hljs-literal">false</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-55">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-55">&#182;</a>
+              </div>
+              <p>And we will capture the return value here to pass it along to the result
+stream.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> returnValue;
+    <span class="hljs-keyword">this</span>.do(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-56">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-56">&#182;</a>
+              </div>
+              <p>If this is the last iteration, track the return value and dispatch
+the done signal.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (iteration.done) {
+            returnValue = iteration.value;
+            done.in.yield(<span class="hljs-literal">true</span>);
+        } <span class="hljs-keyword">else</span> {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-57">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-57">&#182;</a>
+              </div>
+              <p>Otherwise, start another job, first incrementing the outstanding
+job counter so the result stream can’t terminate until we are
+done.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            count.in.inc();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-58">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-58">&#182;</a>
+              </div>
+              <p>Then pass the familiar argument pattern for map callbacks,
+except allowing the job to return a promise for the result.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="hljs-keyword">return</span> Promise.try(callback, thisp, iteration.value, iteration.index)
+            .then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-59">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-59">&#182;</a>
+              </div>
+              <p>We forward the result to the output iterator, preserving its
+index if not its order.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="hljs-keyword">return</span> result.in.yield(value, iteration.index);
+            })
+            .finally(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-60">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-60">&#182;</a>
+              </div>
+              <p>Regardless of whether the job succeeds or fails, we drop the
+outstanding job count so the stream has an opportunity to
+terminate if no more iterations are available.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                count.in.dec();
+            });
+        }
+    }, result.in.throw, limit);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-61">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-61">&#182;</a>
+              </div>
+              <p>If no more iterations are available and all jobs are done, we can close
+the output stream with the same return value as the input stream.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    count.out.equals(Signal.return(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{
+        <span class="hljs-keyword">if</span> (done) {
+            result.in.return(returnValue);
+        }
+    });
+    <span class="hljs-keyword">return</span> result.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-62">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-62">&#182;</a>
+              </div>
+              <h3 id="filter">filter</h3>
+<p>The filter method runs concurrent tests to determine whether to include an
+iteration from the input stream on the output stream.
+The regularity of the duration of the test will determine whether iterations
+are likely to be processed in order, but a concurrency limit of 1 guarantees
+that the input and output order will be the same.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+PromiseIterator.prototype.filter = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, thisp, limit)</span> </span>{
+    <span class="hljs-keyword">var</span> result = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.parent.constructor(); <span class="hljs-comment">// PromiseBuffer, polymorphic</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-63">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-63">&#182;</a>
+              </div>
+              <p>As with map and forEach, we use signals to track the termination
+condition.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = <span class="hljs-keyword">new</span> Signal(<span class="hljs-number">0</span>);
+    <span class="hljs-keyword">var</span> done = <span class="hljs-keyword">new</span> Signal(<span class="hljs-literal">false</span>);
+    <span class="hljs-keyword">var</span> returnValue;
+    <span class="hljs-keyword">this</span>.do(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-64">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-64">&#182;</a>
+              </div>
+              <p>If this is the last iteration, we track the return value to later
+forward to the output stream and note that no more iterations are
+available, pending any outstanding jobs.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (iteration.done) {
+            returnValue = iteration.value;
+            done.in.yield(<span class="hljs-literal">true</span>);
+        } <span class="hljs-keyword">else</span> {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-65">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-65">&#182;</a>
+              </div>
+              <p>Otherwise we start another job, incrementing the outstanding job
+counter and using the usual filter argument pattern.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            count.in.inc();
+            <span class="hljs-keyword">return</span> Promise.try(callback, thisp, iteration.value, iteration.index)
+            .then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-66">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-66">&#182;</a>
+              </div>
+              <p>Only if the test passes do we forward the value, and its
+original index, to the output stream.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="hljs-keyword">if</span> (value) {
+                    <span class="hljs-keyword">return</span> result.in.yield(iteration.value, iteration.index);
+                }
+            })
+            .finally(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-67">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-67">&#182;</a>
+              </div>
+              <p>Regardless of whether the test ran without error, we note
+that the job is done.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                count.in.dec();
+            });
+        }
+    }, result.in.throw, limit);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-68">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-68">&#182;</a>
+              </div>
+              <p>when (count == 0 &amp;&amp; done)</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    count.out.equals(Signal.return(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-69">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-69">&#182;</a>
+              </div>
+              <p>When there are no more outstanding jobs and the input has been
+exhausted, we forward the input return value to the output stream.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (done) {
+            result.in.return(returnValue);
+        }
+    });
+    <span class="hljs-keyword">return</span> result.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-70">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-70">&#182;</a>
+              </div>
+              <h3 id="reduce">reduce</h3>
+<p>The <code>reduce</code> method runs concurrent jobs to acrete values from the input
+stream until only one value remains, returning a cancelable promise (task)
+for that last value.</p>
+<p>Yet to be ported.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-comment">/* TODO reduce, some, every */</span></pre></div></div>
+            
+        </li>
+        
+    </ul>
+  </div>
+</body>
+</html>
