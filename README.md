@@ -13,7 +13,7 @@ The field of reactivity is carved into plots ranging from "reactive programming"
 to the subltly distinct "*functional* reactive programming", with acrage set
 aside for "self adjusting computation" and with neighbors like "bindings".
 Adherents favor everything from "continuation passing style" to "promises", or
-the related concepts of "deferreds", "futures", and "tasks".
+the related concepts of "deferreds" and "futures".
 Other problems lend themselves to "observables", sometimes called "signals" or
 "behaviors", and everyone agrees that "streams" are a good idea, but
 "publishers" and "subscribers" are distinct.
@@ -130,6 +130,10 @@ further subscribers can be introduced, a task can abort its work.
 
 Tasks are **unicast** and therefore cancelable.
 
+See the accompanying sketch of a [task][] implementation.
+
+[task]: http://kriskowal.github.io/gtor/docs/task.html
+
 There is also an esoteric difference between a promise and a future.
 Promise resolvers accept either a value or a promise and will recursively unwrap
 transitive promises for promises.
@@ -174,6 +178,10 @@ Streams are a cooperation between the reader and the writer and information
 flows both ways.
 Data flows forward, acknowledgements flow backward, and either the consumer or
 producer can terminate the flow.
+
+See the accompanying sketch of a [promise buffer][] implementation.
+
+[promise buffer]: http://kriskowal.github.io/gtor/docs/promise-buffer.html
 
 In contrast, **publishers** and **subscribers** are **broadcast**.
 Information flows only one direction, from the publishers to the subscribers.
@@ -1143,8 +1151,8 @@ and the promise it evaluates to.
 
 ### Observables
 
-There is more than one way to solve the problem of over-commitment,
-over-scheduling, or excessive concurrency.
+There is more than one way to solve the problem of processor contention or
+process over-scheduling.
 Streams have a very specific contract that makes pressurization necessary.
 Specifically, a stream is intended to transport the entirety of a collection and
 strongly resembles a spatial collection that has been rotated 90 degrees into a
@@ -1176,8 +1184,8 @@ notification their way.
 
 Both of these cases are distinct from streams and have interesting relationships
 with each other.
-With the temperature sensor, changes are continuous, whereas with the scroll
-position observer, the changes are discrete.
+With the temperature sensor, changes are **continuous**, whereas with the scroll
+position observer, the changes are **discrete**.
 With the temperature sensor, we sample the data at a much lower frequency than
 the display, in which case it is sufficient to remember the last sensed
 temperature and redisplay it.
@@ -1195,7 +1203,7 @@ Producers are pushed back by pressure when the vacuum is filled, thus the term:
 back-pressure.
 
 The discrete event pusher is a Signal.
-The continuous, pollable is a variable.
+The continuous, pollable is a Behavior.
 
 
 Interface          |               |      |
@@ -1203,12 +1211,12 @@ Interface          |               |      |
 Signal Observable  | Get           | Push |
 Signal Generator   | Set           | Push |
 Signal             | Value         | Push |
-Variable Iterator  | Get           | Poll |
-Variable Generator | Set           | Poll |
-Variable           | Value         | Poll |
+Behavior Iterator  | Get           | Poll |
+Behavior Generator | Set           | Poll |
+Behavior           | Value         | Poll |
 
 
--   TODO make sure this is a summary of the topics in the end
+-   TODO make sure this is a summary of the topics in the end:
 
 Yet even variables have variations like probes, gauges, counters,
 flow gauges, accumulators, flushable accumulators, and rotating counters.
@@ -1228,7 +1236,7 @@ The observable implements `forEach`, which subscribes an observer to receive
 push notifications whenever the signal value changes.
 
 ```js
-signal.iterator.forEach(function (value, time, signal) {
+signal.out.forEach(function (value, time, signal) {
     console.log(value);
 })
 ```
@@ -1238,7 +1246,7 @@ Like a stream writer, it implements `yield`.
 However, unlike a stream writer, `yield` does not return a promise.
 
 ```js
-signal.generator.yield(10);
+signal.in.yield(10);
 ```
 
 Signals do not support pressure.
@@ -1246,6 +1254,10 @@ Just as `yield` does not return a promise, the callback you give to `forEach`
 does not accept a promise.
 A signal can only push.
 The consumer (or consumers) cannot push back.
+
+See the accompanying sketch of a [signal][] implementation.
+
+[signal]: http://kriskowal.github.io/gtor/docs/signal.html
 
 Just as streams relate to buffers, not every observable must be paired with a
 signal generator.
@@ -1263,7 +1275,9 @@ tock.forEach(function (tock) {
 });
 ```
 
--   TODO strobe signal
+See the accompanying sketch of a [clock][] implementation.
+
+[clock]: http://kriskowal.github.io/gtor/docs/clock.html
 
 Signals may correspond to system or platform signals like keyboard or mouse
 input or other external sensors.
@@ -1274,14 +1288,6 @@ configuration.
 ```js
 daemon.signals.yield("SIGHUP");
 ```
-
--   TODO illustrate producing estimated time to completion signal for `all`,
-    `join`, or `read` on a reader.
--   TODO signal forEach, map, filter, reduce
--   TODO signal to pulse
--   TODO signal counter
--   TODO signal reservoir sampling
--   TODO signal operator lifting
 
 
 ### Variables or Behaviors
@@ -1597,33 +1603,6 @@ Signals and variables are broadcast.
 Streams are unicast.
 
 
-### Publishers and Subscribers
-
-The difference between a signal and a subscription is that a subscription can be
-canceled.
-If a subscription is canceled, the publisher does not need to send messages.
-We note that signals are similar to streams but do not use promises.
-This means that return values from signal methods and in signal callbacks are
-unused.
-These unused return values are useful for making cancellation composable.
-
-Interface          |               |      |            |
------------------- | --------------| ---- | ---------- |
-Subscriber         | Get           | Push | Cancelable |
-Publisher          | Set           | Push | Cancelable |
-Channel            | Value         | Push |            |
-Signal Observable  | Get           | Push |            |
-Signal Generator   | Set           | Push |            |
-Signal             | Value         | Push |            |
-
--   TODO signals, cancellation, and multiple subscribers. The void of return
-    values leaves open the possibility of chained signals and automatic
-    cancellation.
--   TODO making cancellation composite
--   TODO creating streams from publisher subscriber
--   TODO consume a signal and produce a reservoir sample variable
-
-
 ## Cases
 
 ### Progress and estimated time to completion
@@ -1680,46 +1659,112 @@ var progress = (now - start) / (estimate - start);
 ```
 
 
-### Further cases
+## Summary
 
--   promises
--   streams
--   observables
--   variables
-    -   probes
-    -   accumulators
-    -   floods
+Reactive primitives can be categorized in multiple dimensions.
+The interfaces of analogous non-reactive constructs including getters, setters,
+and generators are insightful in the design of their asynchronous counterparts.
+Identifying whether a primitive is singular or plural also greatly informs the
+design.
 
--   promises to observables
--   observables to promise streams
--   observables to variables
--   variables to observables
+We can use pressure to deal with resource contention while guaranteeing
+consistency.
+We can alternately use push or poll strategies to skip irrelevant states for
+either continuous or discrete time series data with behaviors or signals.
 
--   heavy lifting
-    -   Value => Promise<Value>
-    -   Iterator<Value> => PromiseStream<Value>
-    -   Value => Variable<Value>
-    -   (...Value) -> Value => (...Variable<Value>) -> Variable<Value>
-    -   (...Value) -> Value => (...Signal<Value>) -> Signal<Value>
-    -   (...Value) -> Value => (...Promise<Value>) -> Promise<Value>
+There is a tension between cancelability and robustness, but we have primitives
+that are useful for both cases.
+Streams and tasks are inherently cooperative, cancelable, and allow
+bidirectional information flow.
+Promises guarantee that consumers and producers cannot interfere.
 
--   function *() {}
--   async function () {}
--   async function *() {}
+All of these concepts are related and their implementations benefit from mutual
+availability.
+Promises and tasks are great for single result data, but can provide a
+convenient channel for plural signals and behaviors.
+
+Bringing all of these reactive concepts into a single framework gives us an
+opportunity to tell a coherent story about reactive programming, promotes a
+better understanding about what tool is right for the job, and obviates the
+debate over whether any single primitive is a silver bullet.
 
 
--   a clock user interface
--   measuring the rate of flow for a periodically overflowing counter
--   creating derivative measurements
--   sampling data
--   type ahead suggestions
--   distributed search
--   distributed sort (quick sort, insertion sort, merge sort)
--   infinite scroll
--   indefinite scroll
--   definite but long scroll
+## Further Work
 
--   TODO
+There are many more topics that warrant discussion and I will expand upon these
+here.
+
+Reservoir sampling can be modeled as a behavior that watches a stream or signal
+and produces a representative sample on demand.
+
+A clock user interface is a good study in the interplay between behaviors,
+signals, time, and animation scheduling.
+
+Drawing from my experience at FastSoft, we exposed variables from the kernel's
+networking stack so we could monitor the bandwidth running through our TCP
+acceleration appliance.
+Some of those variables modeled the number of packets transmitted and the number
+of bytes transmitted.
+These counters would frequently overflow.
+There are several interesting ways to architect a solution that would provide
+historical data in multiple resolutions, accounting for the variable overflow,
+involving a combination of streams, behaviors, and signals.
+I should draw your attention to design aspects of RRDTool.
+
+An advantage of having a unified framework for reactive primitives is to create
+simple stories for passing one kind of primitive to another.
+Promises can be coerced to tasks, tasks to promises.
+A signal can be used as a behavior, and a behavior can be captured by a signal.
+Signals can be channeled into streams, and streams can be channeled into
+signals.
+
+It is worth exploring in detail how operators can be lifted in each of these
+value spaces.
+
+Implementing distributed sort using streams is also a worthy exercise.
+
+How to implement type ahead suggestion is a great case to explore cancelable
+streams and tasks.
+
+I also need to discuss how these reactive concepts can propagate operational
+transforms through queries, using both push and pull styles, and how this
+relates to bindings, both synchronous and asynchronous.
+
+I also need to compare and contrast publishers and subscribers to the related
+concepts of signals and streams.
+In short, publishers and subscribers are broadcast, unlike unicast streams,
+but a single subscription could be modeled as a stream.
+However, a subscriber can typically not push back on a publisher, so how
+resource contention is alleviated is an open question.
+
+Related to publishing and subscribing, streams can certainly be forked, in which
+case both branches would put pressure back on the source.
+
+Streams also have methods that return tasks.
+All of these could propagate estimated time to completion.
+Each of the cases for `all`, `any`, `race`, and `read` are worth exploring.
+
+High performance buffers for bytewise data with the promise buffer interface
+require further exploration.
+
+Implementing a retry loop with promises and tasks is illustrative.
+
+Reactive Extensions (Rx) beg a distinction between [hot and cold][] observables,
+which is worth exploring.
+The clock reference implementation shows one way to implement a signal that can
+be active or inactive based on whether anyone is looking.
+
+[hot and cold]: https://github.com/Reactive-Extensions/RxJS/blob/master/doc/gettingstarted/creating.md#cold-vs-hot-observables
+
+The research into continuous behaviors and the original idea of Functional
+Reactive Programming by [Conal Elliott][] deserves attention.
+
+[Conal Eliott]: http://conal.net/
+
+The interplay between promises and tasks with their underlying progress behavior
+and estimated time to completion and status signals require further exlpanation.
+These ideas need to be incorporated into the sketches of promise and task
+implementations.
 
 ## Glossary
 
@@ -1778,16 +1823,4 @@ var progress = (now - start) / (estimate - start);
 -   value
 -   writable
 -   yield
-
--   TODO consider Behavior for Variable name
--   TODO Nit: Node.js Event Emitter isn't an event emitter
--   TODO draw attention to RRD tool http://oss.oetiker.ch/rrdtool/
--   TODO retry with promises and iterators
--   TODO hot vs cold https://github.com/Reactive-Extensions/RxJS/blob/master/doc/gettingstarted/creating.md#cold-vs-hot-observables
--   TODO dispose vs cancel
--   TODO http://conal.net/ Conal Elliott
--   TODO promise status labels on the then method, then(onreturn?, onthrow?,
-    thisp?, label?, ms?)
--   TODO stream operator lifting
--   TODO stream forking
 
