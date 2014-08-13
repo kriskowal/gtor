@@ -19,48 +19,13 @@
           <div id="jump_page">
             
               
-              <a class="source" href="byte-buffer.html">
-                byte-buffer.js
-              </a>
-            
-              
-              <a class="source" href="example.html">
-                example.js
-              </a>
-            
-              
-              <a class="source" href="generators.html">
-                generators.js
+              <a class="source" href="behavior.html">
+                behavior.js
               </a>
             
               
               <a class="source" href="iteration.html">
                 iteration.js
-              </a>
-            
-              
-              <a class="source" href="iterator.html">
-                iterator.js
-              </a>
-            
-              
-              <a class="source" href="long-stack.html">
-                long-stack.js
-              </a>
-            
-              
-              <a class="source" href="observable-methods.html">
-                observable-methods.js
-              </a>
-            
-              
-              <a class="source" href="observable.html">
-                observable.js
-              </a>
-            
-              
-              <a class="source" href="observer.html">
-                observer.js
               </a>
             
               
@@ -71,36 +36,6 @@
               
               <a class="source" href="promise-buffer.html">
                 promise-buffer.js
-              </a>
-            
-              
-              <a class="source" href="promise-generator.html">
-                promise-generator.js
-              </a>
-            
-              
-              <a class="source" href="promise-iterator.html">
-                promise-iterator.js
-              </a>
-            
-              
-              <a class="source" href="promise-machine.html">
-                promise-machine.js
-              </a>
-            
-              
-              <a class="source" href="promise-queue.html">
-                promise-queue.js
-              </a>
-            
-              
-              <a class="source" href="promise.html">
-                promise.js
-              </a>
-            
-              
-              <a class="source" href="signal.html">
-                signal.js
               </a>
             
               
@@ -892,7 +827,7 @@ PromiseIterator.prototype.forEach = <span class="hljs-function"><span class="hlj
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> result = Task.defer(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> result = <span class="hljs-keyword">new</span> Task(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{</pre></div></div>
             
         </li>
         
@@ -920,7 +855,10 @@ generator.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-43">&#182;</a>
               </div>
-              <p>The default concurrency limit is 1.</p>
+              <p>The default concurrency for <code>forEach</code> limit is 1, making it execute
+serially.
+For other operators, <code>map</code> and <code>filter</code>, there is no inherent
+parallelism limit.</p>
 
             </div>
             
