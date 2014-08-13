@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>clock.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+      <ul id="jump_to">
+        <li>
+          <a class="large" href="javascript:void(0);">Jump To &hellip;</a>
+          <a class="small" href="javascript:void(0);">+</a>
+          <div id="jump_wrapper">
+          <div id="jump_page">
+            
+              
+              <a class="source" href="behavior.html">
+                behavior.js
+              </a>
+            
+              
+              <a class="source" href="clock.html">
+                clock.js
+              </a>
+            
+              
+              <a class="source" href="iteration.html">
+                iteration.js
+              </a>
+            
+              
+              <a class="source" href="operators.html">
+                operators.js
+              </a>
+            
+              
+              <a class="source" href="promise-buffer.html">
+                promise-buffer.js
+              </a>
+            
+              
+              <a class="source" href="signal.html">
+                signal.js
+              </a>
+            
+              
+              <a class="source" href="task.html">
+                task.js
+              </a>
+            
+          </div>
+        </li>
+      </ul>
+    
+    <ul class="sections">
+        
+          <li id="title">
+              <div class="annotation">
+                  <h1>clock.js</h1>
+              </div>
+          </li>
+        
+        
+        
+        <li id="section-1">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-1">&#182;</a>
+              </div>
+              
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+              <p>A clock is an observable signal that emits a pulse with the current time
+with a given period and offset.
+The period is a number of miliseconds and the pulse will be emitted at times
+past the epoch that are multiples of that period, plus the offset
+miliseconds.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-pi">
+"use strict"</span>;
+
+<span class="hljs-keyword">var</span> Signal = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./signal"</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <h2 id="clock">Clock</h2>
+<p>The clock constructor accepts the period and offsets in miliseconds, and
+allows you to optionally override the <code>now</code> function, which should provide
+the current time in miliseconds.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-built_in">module</span>.exports = Clock;
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Clock</span><span class="hljs-params">(period, offset, now)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Handler(period, offset, now);
+    Signal.prototype.Observable.call(<span class="hljs-keyword">this</span>, handler);
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <p>Clock inherits exclusively from the observable side of a signal and
+generates values internally.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Clock.prototype = <span class="hljs-built_in">Object</span>.create(Signal.prototype.Observable.prototype);
+Clock.prototype.constructor = Clock;
+Clock.prototype.Handler = ClockHandler;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <h2 id="clockhandler">ClockHandler</h2>
+<p>The clock handler inherits the utilities of a normal signal handler, but
+also does some book keeping to schedule timers, activate, and deactivate.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ClockHandler</span><span class="hljs-params">(period, offset, now)</span> </span>{
+    Signal.prototype.Handler.call(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">this</span>.next = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.period = period || <span class="hljs-number">1000</span>;
+    <span class="hljs-keyword">this</span>.offset = offset || <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">this</span>.now = now || <span class="hljs-keyword">this</span>.now;
+    <span class="hljs-keyword">this</span>.value = <span class="hljs-keyword">this</span>.now();
+    <span class="hljs-keyword">this</span>.timeout = <span class="hljs-literal">null</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+              <p>We use the tock method as a timeout handler, so it has to be bound.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.tock = <span class="hljs-keyword">this</span>.tock.bind(<span class="hljs-keyword">this</span>);
+}
+
+ClockHandler.prototype = <span class="hljs-built_in">Object</span>.create(Signal.prototype.Handler.prototype);
+ClockHandler.prototype.constructor = ClockHandler;
+ClockHandler.prototype.now = <span class="hljs-built_in">Date</span>.now;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+              <p>The <code>tick</code> method arranges for a <code>tock</code> method call at the next time that
+aligns with the period and offset.
+Note that a clock may miss beats if the process spends too much time between
+events.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>ClockHandler.prototype.tick = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(now)</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.next === <span class="hljs-literal">null</span>) {
+        <span class="hljs-keyword">this</span>.next = <span class="hljs-built_in">Math</span>.ceil(
+            <span class="hljs-built_in">Math</span>.floor(
+                (now - <span class="hljs-keyword">this</span>.offset) / <span class="hljs-keyword">this</span>.period
+            ) + <span class="hljs-number">.5</span>
+        ) * <span class="hljs-keyword">this</span>.period + <span class="hljs-keyword">this</span>.offset;
+        <span class="hljs-keyword">this</span>.timeout = setTimeout(<span class="hljs-keyword">this</span>.tock, <span class="hljs-keyword">this</span>.next - now);
+    }
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <p>The <code>tock</code> method responds to timers and propagates the current time, both
+as the pulse value and time index.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>ClockHandler.prototype.tock = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">this</span>.next = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">var</span> now = <span class="hljs-keyword">this</span>.now();
+    <span class="hljs-keyword">this</span>.yield(now, now);
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.active) {
+        <span class="hljs-keyword">this</span>.tick(now);
+    }
+};
+
+ClockHandler.prototype.timer = <span class="hljs-literal">true</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+              <p>The signal handler arranges for active and inactive state changes by calling
+either <code>onstart</code> or <code>onstop</code> depending on whether there are any observers
+registered.</p>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-10">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+              <p>When the clock becomes active, we kick off an initial tick.
+Each subsequent tick is scheduled by the <code>tock</code> method if the clock remains
+active.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>ClockHandler.prototype.onstart = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">this</span>.tick(<span class="hljs-keyword">this</span>.value);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-11">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-11">&#182;</a>
+              </div>
+              <p>The <code>onstop</code> method cancels the next <code>tick</code>, breaking the chain of scheduled
+pulses.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>ClockHandler.prototype.onstop = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.timeout) {
+        clearTimeout(<span class="hljs-keyword">this</span>.timeout);
+    }
+};</pre></div></div>
+            
+        </li>
+        
+    </ul>
+  </div>
+</body>
+</html>

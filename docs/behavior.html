@@ -24,6 +24,11 @@
               </a>
             
               
+              <a class="source" href="clock.html">
+                clock.js
+              </a>
+            
+              
               <a class="source" href="iteration.html">
                 iteration.js
               </a>
@@ -36,6 +41,11 @@
               
               <a class="source" href="promise-buffer.html">
                 promise-buffer.js
+              </a>
+            
+              
+              <a class="source" href="signal.html">
+                signal.js
               </a>
             
               
@@ -82,7 +92,9 @@ triad because they produce the value for any given time on demand.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>
+            <div class="content"><div class='highlight'><pre><span class="hljs-pi">
+"use strict"</span>;
+
 <span class="hljs-keyword">var</span> WeakMap = <span class="hljs-built_in">require</span>(<span class="hljs-string">"collections/weak-map"</span>);
 <span class="hljs-keyword">var</span> Operators = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./operators"</span>);
 <span class="hljs-keyword">var</span> Iteration = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./iteration"</span>);</pre></div></div>
@@ -95,6 +107,53 @@ triad because they produce the value for any given time on demand.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <h3 id="behaviorhandler">BehaviorHandler</h3>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <p>The private handler for a behavior captures its internal state.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">BehaviorHandler</span><span class="hljs-params">(callback, thisp)</span> </span>{
+    <span class="hljs-keyword">this</span>.callback = callback;
+    <span class="hljs-keyword">this</span>.thisp = thisp;
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <p>We have to set this up before constructing singleton behaviors.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">var</span> handlers = <span class="hljs-keyword">new</span> WeakMap();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
               </div>
               <h2 id="behavior">Behavior</h2>
 <p>The behavior constructor accepts a method and optional context object for
@@ -111,11 +170,11 @@ produce a new value.</p>
         </li>
         
         
-        <li id="section-4">
+        <li id="section-7">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-4">&#182;</a>
+                <a class="pilcrow" href="#section-7">&#182;</a>
               </div>
               <p>Behaviors use a weak map of hidden records for private state.</p>
 
@@ -128,11 +187,11 @@ produce a new value.</p>
         </li>
         
         
-        <li id="section-5">
+        <li id="section-8">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-5">&#182;</a>
+                <a class="pilcrow" href="#section-8">&#182;</a>
               </div>
               <p>The <code>return</code> static method creates a behavior that provides the given
 constant value.</p>
@@ -148,11 +207,11 @@ constant value.</p>
         </li>
         
         
-        <li id="section-6">
+        <li id="section-9">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-6">&#182;</a>
+                <a class="pilcrow" href="#section-9">&#182;</a>
               </div>
               <p>The <code>index</code> singleton behavior provides the time or “index” any time it is
 polled.</p>
@@ -166,11 +225,11 @@ polled.</p>
         </li>
         
         
-        <li id="section-7">
+        <li id="section-10">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-7">&#182;</a>
+                <a class="pilcrow" href="#section-10">&#182;</a>
               </div>
               <p>The <code>get</code> method of a behavior produces</p>
 
@@ -184,11 +243,11 @@ polled.</p>
         </li>
         
         
-        <li id="section-8">
+        <li id="section-11">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-8">&#182;</a>
+                <a class="pilcrow" href="#section-11">&#182;</a>
               </div>
               <p>The <code>next</code> method of a behavior returns an iteration that captures both the
 value and index time, and gives a behavior the same shape as an iterable.</p>
@@ -202,11 +261,11 @@ value and index time, and gives a behavior the same shape as an iterable.</p>
         </li>
         
         
-        <li id="section-9">
+        <li id="section-12">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-9">&#182;</a>
+                <a class="pilcrow" href="#section-12">&#182;</a>
               </div>
               <p>The static <code>lift</code> method accepts an operator and its context object and
 produces the analogous operator on behaviors.
@@ -236,11 +295,11 @@ behavior that will always yield <code>30</code>.</p>
         </li>
         
         
-        <li id="section-10">
+        <li id="section-13">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-10">&#182;</a>
+                <a class="pilcrow" href="#section-13">&#182;</a>
               </div>
               <p>The <code>tupleLift</code> static method is the same as <code>lift</code> accept that the returned
 behavior operator accepts an array of behaviors instead of variadic behavior
@@ -264,11 +323,11 @@ arguments.</p>
         </li>
         
         
-        <li id="section-11">
+        <li id="section-14">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-11">&#182;</a>
+                <a class="pilcrow" href="#section-14">&#182;</a>
               </div>
               <p>Using <code>lift</code> and <code>tupleLift</code>, we generate both a method for both the
 behavior constructor and prototype for each of the operators defined in the
@@ -289,40 +348,6 @@ behavior constructor and prototype for each of the operators defined in the
         };
     })(Operators[name], name);
 }</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-12">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-12">&#182;</a>
-              </div>
-              <h3 id="behaviorhandler">BehaviorHandler</h3>
-
-            </div>
-            
-        </li>
-        
-        
-        <li id="section-13">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-13">&#182;</a>
-              </div>
-              <p>The private handler for a behavior captures its internal method.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">BehaviorHandler</span><span class="hljs-params">(callback, thisp)</span> </span>{
-    <span class="hljs-keyword">this</span>.callback = callback;
-    <span class="hljs-keyword">this</span>.thisp = thisp;
-}
-
-<span class="hljs-keyword">var</span> handlers = <span class="hljs-keyword">new</span> WeakMap();</pre></div></div>
             
         </li>
         
