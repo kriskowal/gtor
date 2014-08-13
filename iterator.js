@@ -32,6 +32,19 @@ function Iterator(iterable, start, stop, step) {
     }
 }
 
+Iterator.probe = function (callback, thisp) {
+    return new Iterator(new Probe(callback, thisp));
+};
+
+function Probe(callback, thisp) {
+    this.callback = callback;
+    this.thisp = thisp;
+}
+
+Probe.prototype.next = function (value, index) {
+    return this.callback.call(this.thisp, value, index);
+};
+
 // Using handlers as a hidden table associating a full-fledged Iterator with
 // an underlying, usually merely "nextable", iterator.
 var handlers = new WeakMap();

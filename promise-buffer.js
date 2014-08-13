@@ -277,12 +277,15 @@ PromiseIterator.prototype.do = function (callback, errback, limit) {
 
 PromiseIterator.prototype.forEach = function (callback, thisp, limit) {
     // We create a task for the result.
-    var result = Task.defer(function (error) {
+    var result = new Task(function (error) {
         // If the task is canceled, we will propagate the error back to the
         // generator.
         this.throw(error);
     }, this);
-    // The default concurrency limit is 1.
+    // The default concurrency for `forEach` limit is 1, making it execute
+    // serially.
+    // For other operators, `map` and `filter`, there is no inherent
+    // parallelism limit.
     if (limit == null) { limit = 1; }
     // We will use signals to track the number of outstanding jobs and whether
     // we have seen the last iteration.

@@ -23,15 +23,14 @@ Observer.prototype.yield = function (value, index) {
 };
 
 Observer.prototype.call = function () {
-    if (this.pending) {
+    if (this.pending && !this.cancelled) {
         this.pending = false;
         this.callback.call(this.thisp, this.value, this.index, this.signal);
     }
 };
 
 Observer.prototype.cancel = function () {
-    var index = this.signal.observers.indexOf(this);
-    this.pending = false;
-    this.signal.observers.swap(index, 1);
+    this.signal.cancelObserver(this);
+    this.cancelled = true;
 };
 

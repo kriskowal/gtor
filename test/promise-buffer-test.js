@@ -50,7 +50,7 @@ it("synchronize and acknowledge cycle", function () {
 
 describe("forEach", function () {
 
-    it("works", function () {
+    xit("works", function () {
         var buffer = new PromiseBuffer([0, 1, 2], "fin");
         var index = 0;
         return buffer.out.forEach(function (value) {
@@ -64,7 +64,7 @@ describe("forEach", function () {
 
 describe("map", function () {
 
-    it("works", function () {
+    xit("works", function () {
         var index = 0;
         return new PromiseBuffer([1, 2, 3], "fin").out.map(function (n, i) {
             expect(i).toBe(n - 1);
@@ -78,7 +78,7 @@ describe("map", function () {
         });
     });
 
-    it("executes two jobs in parallel", function () {
+    xit("executes two jobs in parallel", function () {
         var index = 0;
         var limit = 2;
         var delay = 100;

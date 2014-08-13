@@ -42,7 +42,7 @@ it("can't observe multiple times", function () {
 
 it("multiple resolution is ignored", function () {
     // TODO consider carefully whether this makes sense outside the cancellation case
-    var task = Task.defer();
+    var task = new Task();
     task.in.return(10);
     task.in.return(20);
     return task.out.then(function (value) {
@@ -53,7 +53,7 @@ it("multiple resolution is ignored", function () {
 it("cancelling before settling has effect", function () {
     var canceled = false;
     var thisp = {};
-    var task = Task.defer(function () {
+    var task = new Task(function () {
         canceled = true;
         expect(this).toBe(thisp);
     }, thisp);
@@ -67,7 +67,7 @@ it("cancelling before settling has effect", function () {
 
 it("cancelling after settling has no effect", function () {
     var canceled = false;
-    var task = Task.defer(function () {
+    var task = new Task(function () {
         canceled = true;
     });
     task.in.return();
@@ -81,7 +81,7 @@ describe("timeout", function () {
 
     it("works", function () {
         var canceled = false;
-        return Task.defer(function () {
+        return new Task(function () {
             canceled = true;
         }).out.delay(1000).timeout(0)
         .catch(function (error) {
@@ -108,7 +108,7 @@ describe("delay", function () {
     it("can be canceled", function () {
         var now = Date.now();
         var canceled = false;
-        var task = Task.defer(function () {
+        var task = new Task(function () {
             canceled = true;
         }).out;
         var delayed = task.delay(100);
@@ -136,7 +136,7 @@ describe("all", function () {
     it("can be canceled in aggregate", function () {
         var canceled = {};
         var all = Task.all([1, 2, 3].map(function (n) {
-            return Task.defer(function () {
+            return new Task(function () {
                 canceled[n] = true;
             }).out.delay(1000);
         }));
@@ -152,7 +152,7 @@ describe("all", function () {
     it("can be canceled by individual cancelation", function () {
         var canceled = {};
         var tasks = [1, 2, 3].map(function (n) {
-            return Task.defer(function () {
+            return new Task(function () {
                 canceled[n] = true;
             }).out.delay(1000);
         });
@@ -168,11 +168,11 @@ describe("all", function () {
     it("can be canceled by individual failure", function () {
         var canceled = {};
         var tasks = [1, 2, 3].map(function (n) {
-            return Task.defer(function () {
+            return new Task(function () {
                 canceled[n] = true;
             }).out.delay(1000);
         });
-        var task = Task.defer();
+        var task = new Task();
         tasks.push(task.out);
         task.in.throw(new Error("Failed"));
         var now = Date.now();
@@ -198,7 +198,7 @@ describe("fork", function () {
 
     it("can be canceled by child", function () {
         var canceled = false;
-        var root = Task.defer(function () {
+        var root = new Task(function () {
             canceled = true;
         });
         var child = root.out.fork();
@@ -210,7 +210,7 @@ describe("fork", function () {
 
     it("can be canceled by parent", function () {
         var canceled = false;
-        var root = Task.defer(function () {
+        var root = new Task(function () {
             canceled = true;
         });
         var child = root.out.fork();
