@@ -276,17 +276,16 @@ behavior constructor and prototype for each of the operators defined in the
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>Behavior.lifters = {};
-<span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> name <span class="hljs-keyword">in</span> Operators) {
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> name <span class="hljs-keyword">in</span> Operators) {
     (<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operator, name)</span> </span>{
         Behavior[name] = Behavior.lift(operator, Operators);
-        <span class="hljs-keyword">var</span> lifted = Behavior.tupleLift(operator, Operators);
+        <span class="hljs-keyword">var</span> tupleLift = Behavior.tupleLift(operator, Operators);
         Behavior.prototype[name] = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
             <span class="hljs-keyword">var</span> operands = [<span class="hljs-keyword">this</span>];
             <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> index = <span class="hljs-number">0</span>; index &lt; <span class="hljs-built_in">arguments</span>.length; index++) {
                 operands[index + <span class="hljs-number">1</span>] = <span class="hljs-built_in">arguments</span>[index];
             }
-            <span class="hljs-keyword">return</span> lifted(operands);
+            <span class="hljs-keyword">return</span> tupleLift(operands);
         };
     })(Operators[name], name);
 }</pre></div></div>
