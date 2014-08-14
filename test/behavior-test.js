@@ -2,20 +2,22 @@
 var Behavior = require("../behavior");
 
 it("", function () {
-    expect(Behavior.return(10).get()).toBe(10);
+    expect(Behavior.yield(10).next().value).toBe(10);
 });
 
 it("", function () {
     expect(new Behavior(function () {
         return 10;
-    }).get()).toBe(10);
+    }).next().value).toBe(10);
 });
 
 it("", function () {
-    expect(Behavior.return(20).add(Behavior.return(10)).get()).toBe(30);
+    expect(Behavior.yield(20).add(Behavior.yield(10)).next().value).toBe(30);
 });
 
-it("", function () {
-    expect(Behavior.index.add(Behavior.return(20)).get(10)).toBe(30);
+describe("index behavior", function () {
+    it("produces the given index", function () {
+        expect(Behavior.index.add(Behavior.yield(20)).next(10).value).toBe(30);
+    });
 });
 

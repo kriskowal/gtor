@@ -1,7 +1,6 @@
 "use strict";
 
-// A Task is analogous to a Deferred, and a TaskObservable is a cancelable
-// promise.
+// A Task is a cancelable variant of a promise.
 // Like a promise, the observable is a proxy for the result of some work.
 // The interface is largely the same, but a observable can only have one
 // observer.
@@ -22,10 +21,282 @@
 var asap = require("asap");
 var WeakMap = require("weak-map");
 
-// The resolver and observable side of a task share a hidden internal record
-// with their shared state.
-// Handlers are an alternative to using closures.
-var handlers = new WeakMap();
+// ## Task
+//
+// The consumer side of a task should receive the task's observable.
+// This object provides the ability to register exactly one observer for the
+// result of the task, and the ability to cancel the task with an error.
+
+function Task(setup, thisp) {
+    var deferred = Task.defer();
+    var handler = handlers.get(deferred.out);
+    handler.cancel = setup.call(thisp, deferred.in.return, deferred.in.throw);
+    return deferred.out;
+}
+
+/*
+TODO Task.prototype = Object.create(Observable);
+Such that it is possible to create parallel signaling for status and estimated
+time to completion, or other arbitrary signals from the resolver to the
+observable.
+*/
+
+// The `done` method registers an observer for any combination of completion or
+// failure with the given methods and optional context object.
+// The `done` method does not return a new task and does not capture errors
+// thrown by the observer methods.
+Task.prototype.done = function (onreturn, onthrow, thisp) {
+    var self = this;
+    var handler = Task_getHandler(self);
+    handler.done(onreturn, onthrow, thisp);
+};
+
+// The `then` method registers an observer for any combination of completion or
+// failure, and creates a new task that will be completed with the result of
+// either the completion or failure handler.
+Task.prototype.then = function (onreturn, onthrow, thisp) {
+    // TODO accept status and estimated time to completion arguments in
+    // arbitrary order.
+    var handler = Task_getHandler(this);
+    var task = Task.defer(this.cancel, this);
+    var _onreturn, _onthrow;
+    if (typeof onreturn === "function") {
+        _onreturn = function (value) {
+            try {
+                task.in.return(onreturn.call(thisp, value));
+            } catch (error) {
+                task.in.throw(error);
+            }
+        };
+    }
+    if (typeof onthrow === "function") {
+        _onthrow = function (error) {
+            try {
+                task.in.return(onthrow.call(thisp, error));
+            } catch (error) {
+                task.in.throw(error);
+            }
+        };
+    }
+    this.done(_onreturn, _onthrow);
+    return task.out;
+};
+
+// The `spread` method fills a temporary need to be able to spread an array
+// into the arguments of the completion handler of a `then` observer.
+// ECMAScript 6 introduces the ability to spread arguments into an array in the
+// signature of the method.
+Task.prototype.spread = function (onreturn, onthrow, thisp) {
+    return this.then(function (args) {
+        return onreturn.apply(thisp, args);
+    }, onthrow, thisp);
+};
+
+// The `catch` method registers an error observer on a task and returns a new
+// task to be completed with the result of the observer.
+// The observer may return another task or thenable to transfer responsibility
+// to complete this task to another stage of the process.
+Task.prototype.catch = function (onthrow, thisp) {
+    return this.then(null, onthrow, thisp);
+};
+
+// The `finally` method registers an observer for when the task either
+// completes or fails and returns a new task to perform some further work but
+// forward the original value or error otherwise.
+Task.prototype.finally = function (onsettle, thisp) {
+    return this.then(function (value) {
+        return onsettle.call(thisp).then(function Task_finally_value() {
+            return value;
+        })
+    }, function (error) {
+        return onsettle.call(thisp).then(function Task_finally_error() {
+            throw error;
+        });
+    });
+};
+
+// The `get` method creates a task that will get a property of the completion
+// object for this task.
+Task.prototype.get = function (key) {
+    return task.then(function (object) {
+        return object[key];
+    });
+};
+
+// The `call` method creates a task that will call the function that is the
+// completion value of this task with the given spread arguments.
+Task.prototype.call = function (thisp /*, ...args*/) {
+    var args = [];
+    for (var index = 1; index < arguments.length; index++) {
+        args[index - 1] = arguments[index];
+    }
+    return task.then(function (callable) {
+        return callable.apply(thisp, args);
+    });
+};
+
+// The `invoke` method creates a task that will invoke a property of the
+// completion object for this task.
+Task.prototype.invoke = function (name /*, ...args*/) {
+    var args = [];
+    for (var index = 1; index < arguments.length; index++) {
+        args[index - 1] = arguments[index];
+    }
+    return task.then(function (object) {
+        return object[name].apply(object, args);
+    });
+};
+
+// The `thenReturn` method registers an observer for the completion of this
+// task and returns a task that will be completed with the given value when
+// this task is completed.
+Task.prototype.thenReturn = function (value) {
+    return this.then(function () {
+        return value;
+    });
+};
+
+// The `thenReturn` method registers an observer for the completion of this
+// task and returns a task that will fail with the given error when this task
+// is completed.
+Task.prototype.thenThrow = function (error) {
+    return this.then(function () {
+        return error;
+    });
+};
+
+// Effects cancelation from the consumer side.
+Task.prototype.throw = function (error) {
+    var handler = Task_getHandler(this);
+    if (handler.cancel) {
+        handler.throw(error);
+    }
+};
+
+// A task can only be observed once, but it can be forked.
+// The `fork` method returns a new task that will observe the same completion
+// or failure of this task.
+// Hereafter, this task and all forked tasks must *all* be cancelled for this
+// task's canceller to propagate.
+Task.prototype.fork = function () {
+    // The fork method works by fiddling with the handler of this task.
+    // First, we extract this task's handler and make it the new parent for two
+    // child tasks.
+    var parentHandler = Task_getHandler(this);
+    parentHandler.done(function (value) {
+        left.in.return(value);
+        right.in.return(value);
+    }, function (error) {
+        left.in.throw(error);
+        right.in.throw(error);
+    });
+    /* TODO estimated time to completion forwarding */
+    /* TODO use a signal operator to propagate cancellation */
+    var leftCanceled = false, rightCanceled = false;
+    var left = Task.defer(function (error) {
+        if (leftCanceled) {
+            return;
+        }
+        leftCanceled = true;
+        if (rightCanceled) {
+            parentHandler.throw(error);
+        }
+    });
+    var right = Task.defer(function (error) {
+        if (rightCanceled) {
+            return;
+        }
+        rightCanceled = true;
+        if (leftCanceled) {
+            parentHandler.throw(error);
+        }
+    });
+    // We replace our own handler with the left child
+    handlers.set(this, Task_getHandler(left.out));
+    // And return the task with the right child handler
+    return right.out;
+};
+
+// The `delay` method of a task adds a delay of some miliseconds after the task
+// *completes*.
+// Cancelling the delayed task will cancel either the delay or the delayed
+// task.
+Task.prototype.delay = function (ms) {
+    var self = this;
+    var task = Task.defer(function cancelDelayedTask() {
+        self.throw();
+        clearTimeout(handle);
+    });
+    var result = Task.defer();
+    var handle = setTimeout(function taskDelayed() {
+        task.in.return(result.out);
+    }, ms);
+    this.done(function (value) {
+        result.in.return(value);
+    }, function (error) {
+        task.in.throw(error);
+    });
+    return task.out;
+};
+
+// The `timeout` method will automatically cancel a task if it takes longer
+// than a given delay in miliseconds.
+Task.prototype.timeout = function (ms, message) {
+    var self = this;
+    var task = Task.defer(function cancelTimeoutTask() {
+        this.throw();
+        clearTimeout(handle);
+    }, this);
+    var handle = setTimeout(function Task_timeout() {
+        self.throw();
+        task.in.throw(new Error(message || "Timed out after " + ms + "ms"));
+    }, ms);
+    this.done(function Task_timeoutValue(value) {
+        clearTimeout(handle);
+        task.in.return(value);
+    }, function Task_timeoutError(error) {
+        clearTimeout(handle);
+        task.in.throw(error);
+    });
+    return task.out;
+};
+
+
+// ## Completer
+//
+// The producer side of a task should get a reference to a task's resolver.
+// The object provides the capability to settle the task with a completion
+// value or a failure error.
+
+function Completer(handler) {
+    // The task resolver implicitly binds its return and throw methods so these
+    // can be passed as free functions.
+    this.return = this.return.bind(this);
+    this.throw = this.throw.bind(this);
+}
+
+// The `return` method sets the tasks state to "fulfilled" (in the words of
+// promises) or "completed" (in the vernacular of tasks), with a given value.
+// If the corresponding observer was registered already, this will inform
+// the observer as soon as possible.
+// If the corresponding observer gets registered later, it will receive the
+// result as soon as possible thereafter.
+Completer.prototype.return = function (value) {
+    var handler = Task_getHandler(this);
+    handler.become(Task.return(value));
+};
+
+// The `throw` method sets the tasks state to "rejected" (a term borrowed from
+// promises) or "failed" (the corresponding task jargon), with the given error.
+// Again, if the corresponding observer was registered already, this will
+// inform the observer as soon as possible.
+// If the corresponding observer gets registered later, it will receive the
+// result as soon as possible thereafter.
+Completer.prototype.throw = function (error) {
+    var handler = Task_getHandler(this);
+    handler.become(Task.throw(error));
+};
+
 
 // ## Task
 //
@@ -36,13 +307,22 @@ var handlers = new WeakMap();
 // it.
 
 module.exports = Task;
-function Task(cancel, thisp) { // TODO estimate, label
+Task.defer = function (cancel, thisp) { // TODO estimate, label
     var handler = new TaskHandler(); // TODO polymorph constructors
-    this.in = new TaskResolver(handler);
-    this.out = new TaskObservable(handler);
+    var input = Object.create(Completer.prototype);
+    var output = Object.create(Task.prototype);
+    Completer_bind(input);
+    handlers.set(input, handler);
+    handlers.set(output, handler);
     handler.cancel = cancel;
     handler.cancelThisp = thisp;
+    return {in: input, out: output};
 }
+
+function Completer_bind(completer) {
+    completer.return = completer.return.bind(completer);
+    completer.throw = completer.throw.bind(completer);
+};
 
 // The `isTask` utility method allows us to identify a task that was
 // constructed by this library.
@@ -53,7 +333,7 @@ function isTask(object) {
     return (
         Object(object) === object &&
         !!handlers.get(object) &&
-        object instanceof TaskObservable
+        object instanceof Task
     );
 };
 
@@ -76,7 +356,9 @@ Task.return = function (value) {
         var handler = new TaskHandler();
         handler.state = "fulfilled";
         handler.value = value;
-        return new TaskObservable(handler);
+        var task = Object.create(Task.prototype);
+        handlers.set(task, handler);
+        return task;
     }
 };
 
@@ -86,7 +368,9 @@ Task.throw = function (error) {
     var handler = new TaskHandler();
     handler.state = "rejected";
     handler.error = error;
-    return new TaskObservable(handler);
+    var task = Object.create(Task.prototype);
+    handlers.set(task, handler);
+    return task;
 };
 
 // The `all` function accepts an array of tasks, or values that can be coerced
@@ -109,7 +393,7 @@ Task.all = function Task_all(tasks) {
     // The number of outstanding tasks, tracked to determine when all tasks are
     // completed.
     var remaining = tasks.length;
-    var result = new Task(cancelAll);
+    var result = Task.defer(cancelAll);
     var results = Array(tasks.length);
     /* TODO estimated time to completion, label signals */
     var estimates = [];
@@ -153,9 +437,11 @@ Task.delay = function (ms, value) {
 };
 
 // ## TaskHandler
-//
-// A task handler stores the common private state between a task resolver and a
-// task observable.
+
+// The resolver and observable side of a task share a hidden internal record
+// with their shared state.
+// Handlers are an alternative to using closures.
+var handlers = new WeakMap();
 
 function TaskHandler() {
     // When a task is resolved, it "becomes" a different task and its
@@ -277,280 +563,5 @@ TaskHandler.prototype.throw = function (error) {
         this.cancel.call(this.cancelThisp);
     }
     this.become(Task.throw(error || new Error("Consumer canceled task")));
-};
-
-
-// ## TaskResolver
-//
-// The producer side of a task should get a reference to a task's resolver.
-// The object provides the capability to settle the task with a completion
-// value or a failure error.
-
-function TaskResolver(handler) {
-    handlers.set(this, handler);
-    // The task resolver implicitly binds its return and throw methods so these
-    // can be passed as free functions.
-    this.return = this.return.bind(this);
-    this.throw = this.throw.bind(this);
-}
-
-// The `return` method sets the tasks state to "fulfilled" (in the words of
-// promises) or "completed" (in the vernacular of tasks), with a given value.
-// If the corresponding observer was registered already, this will inform
-// the observer as soon as possible.
-// If the corresponding observer gets registered later, it will receive the
-// result as soon as possible thereafter.
-TaskResolver.prototype.return = function (value) {
-    var handler = Task_getHandler(this);
-    handler.become(Task.return(value));
-};
-
-// The `throw` method sets the tasks state to "rejected" (a term borrowed from
-// promises) or "failed" (the corresponding task jargon), with the given error.
-// Again, if the corresponding observer was registered already, this will
-// inform the observer as soon as possible.
-// If the corresponding observer gets registered later, it will receive the
-// result as soon as possible thereafter.
-TaskResolver.prototype.throw = function (error) {
-    var handler = Task_getHandler(this);
-    handler.become(Task.throw(error));
-};
-
-
-// ## TaskObservable
-//
-// The consumer side of a task should receive the task's observable.
-// This object provides the ability to register exactly one observer for the
-// result of the task, and the ability to cancel the task with an error.
-
-function TaskObservable(handler) {
-    handlers.set(this, handler);
-}
-
-/*
-TODO TaskObservable.prototype = Object.create(Observable);
-Such that it is possible to create parallel signaling for status and estimated
-time to completion, or other arbitrary signals from the resolver to the
-observable.
-*/
-
-// The `done` method registers an observer for any combination of completion or
-// failure with the given methods and optional context object.
-// The `done` method does not return a new task and does not capture errors
-// thrown by the observer methods.
-TaskObservable.prototype.done = function (onreturn, onthrow, thisp) {
-    var self = this;
-    var handler = Task_getHandler(self);
-    handler.done(onreturn, onthrow, thisp);
-};
-
-// The `then` method registers an observer for any combination of completion or
-// failure, and creates a new task that will be completed with the result of
-// either the completion or failure handler.
-TaskObservable.prototype.then = function (onreturn, onthrow, thisp) {
-    // TODO accept status and estimated time to completion arguments in
-    // arbitrary order.
-    var handler = Task_getHandler(this);
-    var task = new Task(this.cancel, this);
-    var _onreturn, _onthrow;
-    if (typeof onreturn === "function") {
-        _onreturn = function (value) {
-            try {
-                task.in.return(onreturn.call(thisp, value));
-            } catch (error) {
-                task.in.throw(error);
-            }
-        };
-    }
-    if (typeof onthrow === "function") {
-        _onthrow = function (error) {
-            try {
-                task.in.return(onthrow.call(thisp, error));
-            } catch (error) {
-                task.in.throw(error);
-            }
-        };
-    }
-    this.done(_onreturn, _onthrow);
-    return task.out;
-};
-
-// The `spread` method fills a temporary need to be able to spread an array
-// into the arguments of the completion handler of a `then` observer.
-// ECMAScript 6 introduces the ability to spread arguments into an array in the
-// signature of the method.
-TaskObservable.prototype.spread = function (onreturn, onthrow, thisp) {
-    return this.then(function (args) {
-        return onreturn.apply(thisp, args);
-    }, onthrow, thisp);
-};
-
-// The `catch` method registers an error observer on a task and returns a new
-// task to be completed with the result of the observer.
-// The observer may return another task or thenable to transfer responsibility
-// to complete this task to another stage of the process.
-TaskObservable.prototype.catch = function (onthrow, thisp) {
-    return this.then(null, onthrow, thisp);
-};
-
-// The `finally` method registers an observer for when the task either
-// completes or fails and returns a new task to perform some further work but
-// forward the original value or error otherwise.
-TaskObservable.prototype.finally = function (onsettle, thisp) {
-    return this.then(function (value) {
-        return onsettle.call(thisp).then(function Task_finally_value() {
-            return value;
-        })
-    }, function (error) {
-        return onsettle.call(thisp).then(function Task_finally_error() {
-            throw error;
-        });
-    });
-};
-
-// The `get` method creates a task that will get a property of the completion
-// object for this task.
-TaskObservable.prototype.get = function (key) {
-    return task.then(function (object) {
-        return object[key];
-    });
-};
-
-// The `call` method creates a task that will call the function that is the
-// completion value of this task with the given spread arguments.
-TaskObservable.prototype.call = function (thisp /*, ...args*/) {
-    var args = [];
-    for (var index = 1; index < arguments.length; index++) {
-        args[index - 1] = arguments[index];
-    }
-    return task.then(function (callable) {
-        return callable.apply(thisp, args);
-    });
-};
-
-// The `invoke` method creates a task that will invoke a property of the
-// completion object for this task.
-TaskObservable.prototype.invoke = function (name /*, ...args*/) {
-    var args = [];
-    for (var index = 1; index < arguments.length; index++) {
-        args[index - 1] = arguments[index];
-    }
-    return task.then(function (object) {
-        return object[name].apply(object, args);
-    });
-};
-
-// The `thenReturn` method registers an observer for the completion of this
-// task and returns a task that will be completed with the given value when
-// this task is completed.
-TaskObservable.prototype.thenReturn = function (value) {
-    return this.then(function () {
-        return value;
-    });
-};
-
-// The `thenReturn` method registers an observer for the completion of this
-// task and returns a task that will fail with the given error when this task
-// is completed.
-TaskObservable.prototype.thenThrow = function (error) {
-    return this.then(function () {
-        return error;
-    });
-};
-
-// Effects cancelation from the consumer side.
-TaskObservable.prototype.throw = function (error) {
-    var handler = Task_getHandler(this);
-    if (handler.cancel) {
-        handler.throw(error);
-    }
-};
-
-// A task can only be observed once, but it can be forked.
-// The `fork` method returns a new task that will observe the same completion
-// or failure of this task.
-// Hereafter, this task and all forked tasks must *all* be cancelled for this
-// task's canceller to propagate.
-TaskObservable.prototype.fork = function () {
-    // The fork method works by fiddling with the handler of this task.
-    // First, we extract this task's handler and make it the new parent for two
-    // child tasks.
-    var parentHandler = Task_getHandler(this);
-    parentHandler.done(function (value) {
-        left.in.return(value);
-        right.in.return(value);
-    }, function (error) {
-        left.in.throw(error);
-        right.in.throw(error);
-    });
-    /* TODO estimated time to completion forwarding */
-    /* TODO use a signal operator to propagate cancellation */
-    var leftCanceled = false, rightCanceled = false;
-    var left = new Task(function (error) {
-        if (leftCanceled) {
-            return;
-        }
-        leftCanceled = true;
-        if (rightCanceled) {
-            parentHandler.throw(error);
-        }
-    });
-    var right = new Task(function (error) {
-        if (rightCanceled) {
-            return;
-        }
-        rightCanceled = true;
-        if (leftCanceled) {
-            parentHandler.throw(error);
-        }
-    });
-    // We replace our own handler with the left child
-    handlers.set(this, Task_getHandler(left.out));
-    // And return the task with the right child handler
-    return right.out;
-};
-
-// The `delay` method of a task adds a delay of some miliseconds after the task
-// *completes*.
-// Cancelling the delayed task will cancel either the delay or the delayed
-// task.
-TaskObservable.prototype.delay = function (ms) {
-    var self = this;
-    var task = new Task(function cancelDelayedTask() {
-        self.throw();
-        clearTimeout(handle);
-    });
-    var result = new Task();
-    var handle = setTimeout(function taskDelayed() {
-        task.in.return(result.out);
-    }, ms);
-    this.done(function (value) {
-        result.in.return(value);
-    }, function (error) {
-        task.in.throw(error);
-    });
-    return task.out;
-};
-
-// The `timeout` method will automatically cancel a task if it takes longer
-// than a given delay in miliseconds.
-TaskObservable.prototype.timeout = function (ms, message) {
-    var self = this;
-    var task = new Task(function cancelTimeoutTask() {
-        this.throw();
-        clearTimeout(handle);
-    }, this);
-    var handle = setTimeout(function Task_timeout() {
-        self.throw();
-        task.in.throw(new Error(message || "Timed out after " + ms + "ms"));
-    }, ms);
-    this.done(function Task_timeoutValue(value) {
-        clearTimeout(handle);
-        task.in.return(value);
-    }, function Task_timeoutError(error) {
-        clearTimeout(handle);
-        task.in.throw(error);
-    });
-    return task.out;
 };
 

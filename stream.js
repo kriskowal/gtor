@@ -26,8 +26,8 @@
 // Either side of a connection can terminate the other.
 
 var Task = require("./task");
-var Signal = require("./signal");
 var Promise = require("./promise");
+var Observable = require("./observable");
 var PromiseQueue = require("./promise-queue");
 var Iteration = require("./iteration");
 var WeakMap = require("weak-map");
@@ -42,8 +42,8 @@ var queues = new WeakMap();
 
 // ## Stream
 //
-// Like promises and tasks, streams use the [revealing constructor
-// pattern][Revealing Constructor].
+// Like promises, streams use the [revealing constructor pattern][Revealing
+// Constructor].
 //
 // [Revealing Constructor]: http://domenic.me/2014/02/13/the-revealing-constructor-pattern/
 //
@@ -217,7 +217,7 @@ Stream.prototype.do = function (callback, errback, limit) {
 
 Stream.prototype.forEach = function (callback, thisp, limit) {
     // We create a task for the result.
-    var result = new Task(function (error) {
+    var result = Task.defer(function (error) {
         // If the task is canceled, we will propagate the error back to the
         // generator.
         this.throw(error);
@@ -229,8 +229,8 @@ Stream.prototype.forEach = function (callback, thisp, limit) {
     if (limit == null) { limit = 1; }
     // We will use signals to track the number of outstanding jobs and whether
     // we have seen the last iteration.
-    var count = new Signal(0);
-    var done = new Signal(false);
+    var count = Observable.signal(0);
+    var done = Observable.signal(false);
     // We will capture the return value in scope.
     var returnValue;
     // Using the do utility function to limit concurrency and give us
@@ -259,7 +259,7 @@ Stream.prototype.forEach = function (callback, thisp, limit) {
     }, result.in.throw, limit);
     // We have not completed the task until all outstanding jobs have completed
     // and no more iterations are available.
-    count.out.equals(Signal.return(0)).and(done.out).forEach(function (done) {
+    count.out.equals(Observable.yield(0)).and(done.out).forEach(function (done) {
         if (done) {
             result.in.return(returnValue);
         }
@@ -283,8 +283,8 @@ Stream.prototype.map = function (callback, thisp, limit) {
     var result = new this.constructor.buffer();
     // As with `forEach`, we track the number of outstanding jobs and whether
     // we have seen the last iteration.
-    var count = new Signal(0);
-    var done = new Signal(false);
+    var count = Observable.signal(0);
+    var done = Observable.signal(false);
     // And we will capture the return value here to pass it along to the result
     // stream.
     var returnValue;
@@ -317,7 +317,7 @@ Stream.prototype.map = function (callback, thisp, limit) {
     }, result.in.throw, limit);
     // If no more iterations are available and all jobs are done, we can close
     // the output stream with the same return value as the input stream.
-    count.out.equals(Signal.return(0)).and(done.out).forEach(function (done) {
+    count.out.equals(Observable.yield(0)).and(done.out).forEach(function (done) {
         if (done) {
             result.in.return(returnValue);
         }
@@ -337,8 +337,8 @@ Stream.prototype.filter = function (callback, thisp, limit) {
     var result = new this.constructor.buffer();
     // As with map and forEach, we use signals to track the termination
     // condition.
-    var count = new Signal(0);
-    var done = new Signal(false);
+    var count = Observable.signal(0);
+    var done = Observable.signal(false);
     var returnValue;
     this.do(function (iteration) {
         // If this is the last iteration, we track the return value to later
@@ -367,7 +367,7 @@ Stream.prototype.filter = function (callback, thisp, limit) {
         }
     }, result.in.throw, limit);
     /* when (count == 0 && done) */
-    count.out.equals(Signal.return(0)).and(done.out).forEach(function (done) {
+    count.out.equals(Observable.yield(0)).and(done.out).forEach(function (done) {
         // When there are no more outstanding jobs and the input has been
         // exhausted, we forward the input return value to the output stream.
         if (done) {

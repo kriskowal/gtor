@@ -36,9 +36,9 @@ function Behavior(callback, thisp) {
     handlers.set(this, handler);
 }
 
-// The `return` static method creates a behavior that provides the given
+// The `yield` static method creates a behavior that provides the given
 // constant value.
-Behavior.return = function (value) {
+Behavior.yield = function (value) {
     return new Behavior(function () {
         return value;
     });
@@ -50,16 +50,13 @@ Behavior.index = new Behavior(function (index) {
     return index;
 });
 
-// The `get` method of a behavior produces
-Behavior.prototype.get = function (index) {
-    var handler = handlers.get(this);
-    return handler.callback.call(handler.thisp, index);
-};
-
 // The `next` method of a behavior returns an iteration that captures both the
-// value and index time, and gives a behavior the same shape as an iterable.
+// value and index time, and gives a behavior the same shape as an iterator.
+// Unlike a stream, the `next` method does not return a promise for an iteration.
 Behavior.prototype.next = function (index) {
-    return new Iteration(this.get(index), false, index);
+    var handler = handlers.get(this);
+    var value = handler.callback.call(handler.thisp, index);
+    return new Iteration(value, false, index);
 };
 
 // The static `lift` method accepts an operator and its context object and
@@ -76,7 +73,7 @@ Behavior.lift = function (operator, operators) {
         var operands = Array.prototype.slice.call(arguments); /* TODO unroll */
         return new Behavior(function (index) {
             var values = operands.map(function (operand) {
-                return operand.get(index);
+                return operand.next(index).value;
             });
             if (values.every(Operators.defined)) {
                 return operator.apply(operators, values);
@@ -92,7 +89,7 @@ Behavior.tupleLift = function (operator, operators) {
     return function operatorBehavior(operands) {
         return new Behavior(function (index) {
             var values = operands.map(function (operand) {
-                return operand.get(index);
+                return operand.next(index).value;
             });
             if (values.every(Operators.defined)) {
                 return operator.apply(operators, values);
