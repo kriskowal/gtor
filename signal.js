@@ -65,11 +65,11 @@ SignalHandler.prototype.Iteration = Iteration;
 // Note that we track observers in reverse order to take advantage of a small
 // optimization afforded by countdown loops.
 SignalHandler.prototype.yield = function (value, index) {
+    this.value = value;
+    this.index = index;
     if (!this.active) {
         return;
     }
-    this.value = value;
-    this.index = index;
     var observers = this.observers;
     var length = observers.length;
     var observerIndex = observers.length;
@@ -116,6 +116,9 @@ SignalHandler.prototype.call = function () {
                 this.onstart();
             }
             this.active = true;
+            if (Operators.defined(this.value)) {
+                this.yield(this.value, this.index);
+            }
         }
     } else {
         if (!this.observers.length) {

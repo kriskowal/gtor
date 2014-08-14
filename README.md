@@ -33,6 +33,8 @@ converging on a model that unifies at least promises and observables.
 
 However, this description fails to capture all of the varigated concepts of
 reactivity.
+Rather, Rx conflates all reactive primitives into a single Observable type that
+can perform any role.
 As the common paraphrase of Einstein goes, everything should be made as simple
 as possible, but no simpler.
 
@@ -240,25 +242,8 @@ iteration = iterator.next();
 expect(iteration.done).toBe(true);
 ```
 
-We propose that an iteration might also have an optional `index` property.
-This would allow the iterator to provide some additional context from the
-source.
-
-```js
-var iterator = iterate("ABC");
-var iteration = iterator.next();
-expect(iteration.value).toBe("A");
-expect(iteration.index).toBe(0);
-iteration = iterator.next();
-expect(iteration.value).toBe("B");
-expect(iteration.index).toBe(1);
-iteration = iterator.next();
-expect(iteration.value).toBe("C");
-expect(iteration.index).toBe(2);
-```
-
 What distinguishes an iterator from an array is that it is **lazy**.
-They do not necessarily end.
+An iterator does not necessarily end.
 We can have iterators for non-terminating sequences, like counting or the
 fibonacci sequence.
 The `range` function produces a sequence of values within an interval and
@@ -466,18 +451,6 @@ expect(array).toEqual([10, 20, 30]);
 
 Since ECMAScript 5, at Doug Crockford’s behest, JavaScript allows keywords to be
 used for property names.
-
-Just as iterations can carry an index from an array iterator, `yield` would
-accept an optional index argument.
-
-```js
-var array = [];
-var generator = generate(array);
-generator.yield(30, 2);
-generator.yield(20, 1);
-generator.yield(10, 0);
-expect(array).toEqual([10, 20, 30]);
-```
 
 And just as array iterators are just one implementation of the iterator
 interface, the generator interface could have many interfacets.

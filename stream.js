@@ -1,227 +1,161 @@
 
-// A promise buffer is an asynchronous stream of objects.
+// A stream represents either end of a buffer that transports values
+// asynchronously in either direction.
+// By convention, values are transported in one direction, and acknowledgements
+// are returned.
 //
-// A promise buffer is **unicast**, in the sense that it is a cooperation
-// between a single producer and a single consumer, mediated by the buffer to
-// control the throughput of both sides.
+// A stream is a promise iterator and a promise generator.
+// All of the kernel methods, `yield` or `next`, `return`, and `throw`,
+// both send and receive promises for iterations.
 //
-// Since a promise buffer is unicast, it is also **cancelable**.
-// The iterator side of the promise buffer has the ability to prematurely
-// terminate the generator by throwing an exception back.
+// Promise streams borrow the jargon of iterators and generators but each
+// method is equivalent to a conventional stream method name.
+//
+// - `yield` is akin to `write`.
+// - `next` is akin to `read`.
+// - `yield` and `next` are interchangeable. The argument is written and the
+//   return value is a promise for what will be read.
+// - `return` is akin to `close`.
+// - `throw` is akin to `abort`, `cancel`, or `destroy`.
+//
+// A stream is **unicast**, in the sense that it is a cooperation between a
+// single producer and consumer, mediated by the buffer to control the
+// throughput of both sides.
+//
+// Since a stream is unicast, it is also **cancelable**.
+// Either side of a connection can terminate the other.
 
-"use strict";
-
-var Iteration = require("./iteration");
+var Task = require("./task");
+var Signal = require("./signal");
 var Promise = require("./promise");
 var PromiseQueue = require("./promise-queue");
-var Signal = require("./signal");
-var Task = require("./task");
+var Iteration = require("./iteration");
 var WeakMap = require("weak-map");
 
-// Promise buffers use an internal handler object, shared by its internal
-// iterator and generator, that tracks shared private state.
-var handlers = new WeakMap();
+// Every stream has a private dual, the opposite end of the stream.
+// For the input, there is the output; for the output, there is the input.
+var duals = new WeakMap();
+// Every stream has a private promise queue for transporting iterations.
+// The stream uses its own queue to receive iterations from its dual, and uses
+// the dual's queue to send iterations to its dual.
+var queues = new WeakMap();
 
-// ## PromiseBuffer
+// ## Stream
+//
+// Like promises and tasks, streams use the [revealing constructor
+// pattern][Revealing Constructor].
+//
+// [Revealing Constructor]: http://domenic.me/2014/02/13/the-revealing-constructor-pattern/
+//
+// However, unlike promises, streams are symmetric and support bidirectional
+// communication.
+// By convention, the stream constructor creates an output stream and reveals
+// the methods of the input stream as arguments to a setup function.
 
-// The first argument of a promise buffer may either be a number or an iterable
-// which is used to "prime" the buffer up to a certain size or with certain
-// content.
-// These values, or this quantity of undefined values, initializes the queue of
-// promises that will be returned by the generator, allowing the generator to
-// get ahead of the consumer, filling the buffer up to this size before
-// pressure from the consumer pushes back.
+module.exports = Stream;
+function Stream(setup, length) {
+    var buffer = Stream.buffer(length);
+    setup(buffer.in.yield, buffer.in.return, buffer.in.throw);
+    return buffer.out;
+}
 
-module.exports = PromiseBuffer;
-function PromiseBuffer(values) {
-    if (!(this instanceof PromiseBuffer)) {
-        return new PromiseBuffer();
+// The `buffer` constructor method of a stream creates a tangled pair of
+// streams, dubbed `in` and `out`.
+//
+// The `buffer` method is analogous to `Promise.defer`.
+
+Stream.buffer = function (length) {
+    var outgoing = new PromiseQueue(); // syn
+    var incoming = new PromiseQueue(); // ack
+    var input = Object.create(Stream.prototype);
+    var output = Object.create(Stream.prototype);
+    duals.set(input, output);
+    duals.set(output, input);
+    queues.set(input, incoming);
+    queues.set(output, outgoing);
+    Stream_bind(input);
+    Stream_bind(output);
+    // If the user provides a buffer length, we prime the incoming message
+    // queue with that many iterations.
+    // This allows the producer to stay this far ahead of the consumer.
+    while (length != null && length--) {
+        incoming.put(new Iteration());
     }
-    var handler = new this.Handler(values);
-    // A promise buffer has an input side and an output side.
-    // The output is analogous to an iterator, but instead of producing
-    // iterations, it produces promises for iterations.
-    this.out = new this.Iterator(handler, this);
-    // The input is analogous to a generator, but `yield`, `return`, and
-    // `throw` all return promises for returning iterations, indicating when
-    // and whether the producer should proceed, and perhaps carrying
-    // information back to the producer.
-    this.in = new this.Generator(handler, this);
+    return {in: input, out: output};
+};
+
+// The `from` method creates a stream from an iterable or a promise iterable.
+Stream.from = function (iterable) {
+    return new this(function (_yield, _return) {
+        Promise.return(iterable)
+        .invoke("forEach", _yield)
+        .then(_return)
+        .done();
+    });
+};
+
+// The kernel methods of a stream are bound to the stream so they can be passed
+// as free variables.
+// Particularly, the methods of an input stream are revealed to the setup
+// function of an output stream's constructor.
+function Stream_bind(stream) {
+    stream.next = stream.next.bind(stream);
+    stream.yield = stream.yield.bind(stream);
+    stream.return = stream.return.bind(stream);
+    stream.throw = stream.throw.bind(stream);
 }
 
-// The Handler, Iterator, and Generator constructors can be overridden but note
-// that only the proper Iterator, Generator, and Handler constructors have
-// access to the internal handler map.
-// Overridden constructors are responsible for calling their super constructor.
-PromiseBuffer.prototype.Handler = PromiseBufferHandler;
-PromiseBuffer.prototype.Iterator = PromiseIterator;
-PromiseBuffer.prototype.Generator = PromiseGenerator;
+Stream.prototype.Iteration = Iteration;
 
-function PromiseBufferHandler(values) {
-    // The buffer has two internal promise queues that ferry iterations.
-    // The input queue ferries data iterations from the producer to the
-    // consumer.
-    this.in = new PromiseQueue();
-    // The output queue ferries acknowledgement or flush iterations from the
-    // consumer to the producer.
-    this.out = new PromiseQueue();
-    // If the constructor provided a buffer size, we prime the output queue
-    // with that quantity of undefined iterations.
-    if (typeof values === "number") {
-        while (values--) {
-            this.prime();
-        }
-    // If the constructor provides any other value, we assume that it is
-    // iterable and implements forEach, which we use to populate the
-    // acknowledgement queue, with both the value and the index of each input
-    // value.
-    } else if (values) {
-        values.forEach(this.prime, this);
-    }
-}
+// ### Kernel Methods
 
-// The prime method, used above by the handler constructor to initialize the
-// acknowledgement queue, allowing the producer to get ahead of the consumer by
-// an iteration.
-PromiseBufferHandler.prototype.prime = function (value, index) {
-    this.out.put(new this.Iteration(value, false, index));
+// The `next` and `yield` methods are equivalent.
+// By convention, `next` is used to consume, and `yield` to produce,
+// but both methods have the same signature and behavior.
+// They return a promise for the next iteration from the other side of the
+// connection, and send an iteration with the given value to the other.
+
+Stream.prototype.next = function (value, index) {
+    return this.yield(value, index);
 };
 
-// The get method is used by the iterator side to put an iteration on the
-// acnowledgement queue and take a promise for an iteration off the data queue.
-PromiseBufferHandler.prototype.get = function (iteration) {
-    this.in.put(iteration);
-    return this.out.get();
+Stream.prototype.yield = function (value, index) {
+    var dual = duals.get(this);
+    var incoming = queues.get(this);
+    var outgoing = queues.get(dual);
+    outgoing.put(new this.Iteration(value, false, index));
+    return incoming.get();
 };
 
-// The put method is used by the generator side to put an iteration on the data
-// queue and take a promise off the acknowledgement queue.
-PromiseBufferHandler.prototype.put = function (iteration) {
-    this.out.put(iteration);
-    return this.in.get();
+// The `return` method sends a final iteration to the other side of a stream,
+// which by convention terminates communication in this direction normally.
+
+Stream.prototype.return = function (value) {
+    var dual = duals.get(this);
+    var incoming = queues.get(this);
+    var outgoing = queues.get(dual);
+    outgoing.put(new this.Iteration(value, true));
+    return incoming.get();
 };
 
-PromiseBufferHandler.prototype.Iteration = Iteration;
+// The `throw` method sends an error to the other side of the stream,
+// in an attempt to break communication in this direction, and, unless the
+// other side handles the exception, the error should bounce back.
 
-
-// ## PromiseGenerator
-
-// A promise generator implements the same interface as a synchronous generator
-// except that each of its methods, `yield`, `return`, and `throw`, return
-// promises that the generator should wait for before proceeding, indcating
-// when and whether the consumer is ready for more data.
-// These promises may eventually throw, indicating that the generator should
-// stop prematurely.
-
-function PromiseGenerator(handler, parent) {
-    handlers.set(this, handler);
-    this.parent = parent;
-    this.yield = this.yield.bind(this);
-    this.return = this.return.bind(this);
-    this.throw = this.throw.bind(this);
-}
-
-PromiseGenerator.prototype.Promise = Promise;
-
-// Sends a data iteration to the iterator, with a given value and optional
-// index.
-// Returns a promise for when and whether to proceed.
-PromiseGenerator.prototype.yield = function (value, index) {
-    var handler = handlers.get(this);
-    return handler.put(new handler.Iteration(value, false, index));
+Stream.prototype.throw = function (error) {
+    var dual = duals.get(this);
+    var incoming = queues.get(this);
+    var outgoing = queues.get(dual);
+    outgoing.put(Promise.throw(error));
+    return incoming.get();
 };
-
-// Informs the iterator that the stream has gracefully concluded, optionally
-// with a return value.
-// Returns a promise for when and whether to proceed.
-PromiseGenerator.prototype.return = function (value) {
-    var handler = handlers.get(this);
-    return handler.put(new handler.Iteration(value, true));
-};
-
-// Sends an eventual error instead of an iteration to the consumer, indicating
-// that the generator terminated without grace.
-// Returns a promise for when and whether to proceed.
-PromiseGenerator.prototype.throw = function (error) {
-    var handler = handlers.get(this);
-    return handler.put(this.Promise.throw(error || new Error("Producer canceled stream")));
-};
-
-
-// ## PromiseIterator
-
-// A promise iterator implements the same interface as a synchronous iterator
-// except that instead of returning iterations, it returns promises for
-// iterations.
-function PromiseIterator(handler, parent) {
-    if (parent) {
-        handlers.set(this, handler);
-        this.parent = parent;
-    } else if (typeof handler.call === "function") {
-        var buffer = new PromiseBuffer();
-        handler.call(parent, buffer.out.yield, buffer.out.return, buffer.out.throw);
-        handlers.set(this, handlers.get(buffer.out));
-    }
-}
-
-// Requests a promise for the next iteration from the generator side, and sends
-// an acknowledgement iteration back to the generator so that it may produce
-// another iteration.
-// The acknowledgement may carry a value and optionally the index of that
-// value.
-PromiseIterator.prototype.next = function (value, index) {
-    var handler = handlers.get(this);
-    return handler.get(new handler.Iteration(value, false, index));
-}
-
-// Sends an eventual error back to the generator requesting premature
-// termination, possibly canceling or aborting the generator.
-// Returns a promise for the next iteration if the generator recovers from the
-// thrown error.
-// Otherwise, the generator should propagate the error back to the iterator.
-PromiseIterator.prototype.throw = function (error) {
-    var handler = handlers.get(this);
-    return handler.put(Promise.throw(error || new Error("Consumer canceled stream")));
-};
-
-// ---
-
-// All methods hereafter are defined in terms of the primitive `next`.
-
-// ### copy or pipe
-
-// The `copy` method pipes data from this iterator into the given generator and
-// returns a cancelable task for the completion of the copy.
-// Optionally, `copy` may forward this stream’s return value to the generator
-// upon completion.
-/* TODO consider naming this pipe or pipeTo */
-PromiseIterator.prototype.copy = function (generator, options) {
-    var done = this.forEach(generator.yield, generator);
-    /* TODO consider naming the option `return` */
-    if (!options || options.close !== false) {
-        done = done.then(function (value) {
-            return generator.return(value);
-        });
-    }
-    return done;
-};
-
-// The pipe as in `pipeThrough` idea is a bit of a bust because using .map does
-// the same job as passing an equivalent PromiseMachine with buffered input and
-// output but doesn't have the dangling promise and silent errors.
-/*
-PromiseIterator.prototype.pipe = function (pipe, options) {
-    this.copy(pipe.in, options); // a cancelable promise dangles here
-    return pipe.out;
-};
-*/
 
 // ### do
 //
 // The `do` method is a utility for `forEach` and `map`, responsible for
 // setting up an appropriate semaphore for the concurrency limit.
 
-PromiseIterator.prototype.do = function (callback, errback, limit) {
+Stream.prototype.do = function (callback, errback, limit) {
     var next;
     // If there is no concurrency limit, we are free to batch up as many jobs
     // as the producer can create.
@@ -281,7 +215,7 @@ PromiseIterator.prototype.do = function (callback, errback, limit) {
 // arrays, but can be expanded by passing a number in the third argument
 // position.
 
-PromiseIterator.prototype.forEach = function (callback, thisp, limit) {
+Stream.prototype.forEach = function (callback, thisp, limit) {
     // We create a task for the result.
     var result = new Task(function (error) {
         // If the task is canceled, we will propagate the error back to the
@@ -344,9 +278,9 @@ PromiseIterator.prototype.forEach = function (callback, thisp, limit) {
 // iterations.
 // A concurrency limit of 1 will ensure that order is preserved.
 
-PromiseIterator.prototype.map = function (callback, thisp, limit) {
-    // We use our own PromiseBuffer constructor so subtypes can alter behavior.
-    var result = new this.parent.constructor();
+Stream.prototype.map = function (callback, thisp, limit) {
+    // We use our own constructor so subtypes can alter behavior.
+    var result = new this.constructor.buffer();
     // As with `forEach`, we track the number of outstanding jobs and whether
     // we have seen the last iteration.
     var count = new Signal(0);
@@ -399,8 +333,8 @@ PromiseIterator.prototype.map = function (callback, thisp, limit) {
 // are likely to be processed in order, but a concurrency limit of 1 guarantees
 // that the input and output order will be the same.
 
-PromiseIterator.prototype.filter = function (callback, thisp, limit) {
-    var result = new this.parent.constructor(); // PromiseBuffer, polymorphic
+Stream.prototype.filter = function (callback, thisp, limit) {
+    var result = new this.constructor.buffer();
     // As with map and forEach, we use signals to track the termination
     // condition.
     var count = new Signal(0);
@@ -432,7 +366,7 @@ PromiseIterator.prototype.filter = function (callback, thisp, limit) {
             });
         }
     }, result.in.throw, limit);
-    // when (count == 0 && done)
+    /* when (count == 0 && done) */
     count.out.equals(Signal.return(0)).and(done.out).forEach(function (done) {
         // When there are no more outstanding jobs and the input has been
         // exhausted, we forward the input return value to the output stream.
@@ -451,12 +385,20 @@ PromiseIterator.prototype.filter = function (callback, thisp, limit) {
 //
 // Yet to be ported.
 
-// ### fork
+/* TODO reduce, some, every */
 
-PromiseIterator.prototype.fork = function (length) {
+// ### fork
+//
+// The fork method creates an array of streams that will all see every value
+// from this stream.
+// All of the returned streams put back pressure on this stream.
+// This stream can only advance when all of the output streams have advanced.
+
+Stream.prototype.fork = function (length) {
+    length = length || 2;
     var buffers = new Array(length).map(function () {
-        return new Buffer();
-    });
+        return this.constructor.buffer();
+    }, this);
     var inputs = buffers.map(function (buffer) {
         return buffer.in;
     });
@@ -479,4 +421,3 @@ PromiseIterator.prototype.fork = function (length) {
     return outputs;
 };
 
-/* TODO reduce, some, every */
