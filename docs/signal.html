@@ -39,13 +39,13 @@
               </a>
             
               
-              <a class="source" href="promise-buffer.html">
-                promise-buffer.js
+              <a class="source" href="signal.html">
+                signal.js
               </a>
             
               
-              <a class="source" href="signal.html">
-                signal.js
+              <a class="source" href="stream.html">
+                stream.js
               </a>
             
               
@@ -211,11 +211,11 @@ optimization afforded by countdown loops.</p>
             </div>
             
             <div class="content"><div class='highlight'><pre>SignalHandler.prototype.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">this</span>.value = value;
+    <span class="hljs-keyword">this</span>.index = index;
     <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.active) {
         <span class="hljs-keyword">return</span>;
     }
-    <span class="hljs-keyword">this</span>.value = value;
-    <span class="hljs-keyword">this</span>.index = index;
     <span class="hljs-keyword">var</span> observers = <span class="hljs-keyword">this</span>.observers;
     <span class="hljs-keyword">var</span> length = observers.length;
     <span class="hljs-keyword">var</span> observerIndex = observers.length;
@@ -323,6 +323,9 @@ Derrived signal handlers, for example the <code>ClockHandler</code>, may impleme
                 <span class="hljs-keyword">this</span>.onstart();
             }
             <span class="hljs-keyword">this</span>.active = <span class="hljs-literal">true</span>;
+            <span class="hljs-keyword">if</span> (Operators.defined(<span class="hljs-keyword">this</span>.value)) {
+                <span class="hljs-keyword">this</span>.yield(<span class="hljs-keyword">this</span>.value, <span class="hljs-keyword">this</span>.index);
+            }
         }
     } <span class="hljs-keyword">else</span> {
         <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.observers.length) {
