@@ -34,13 +34,18 @@
               </a>
             
               
+              <a class="source" href="observable.html">
+                observable.js
+              </a>
+            
+              
               <a class="source" href="operators.html">
                 operators.js
               </a>
             
               
-              <a class="source" href="signal.html">
-                signal.js
+              <a class="source" href="promise.html">
+                promise.js
               </a>
             
               
@@ -112,8 +117,8 @@ Either side of a connection can terminate the other.</p>
             
             <div class="content"><div class='highlight'><pre>
 <span class="hljs-keyword">var</span> Task = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./task"</span>);
-<span class="hljs-keyword">var</span> Signal = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./signal"</span>);
 <span class="hljs-keyword">var</span> Promise = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./promise"</span>);
+<span class="hljs-keyword">var</span> Observable = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./observable"</span>);
 <span class="hljs-keyword">var</span> PromiseQueue = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./promise-queue"</span>);
 <span class="hljs-keyword">var</span> Iteration = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./iteration"</span>);
 <span class="hljs-keyword">var</span> WeakMap = <span class="hljs-built_in">require</span>(<span class="hljs-string">"weak-map"</span>);</pre></div></div>
@@ -161,8 +166,7 @@ the dual’s queue to send iterations to its dual.</p>
                 <a class="pilcrow" href="#section-5">&#182;</a>
               </div>
               <h2 id="stream">Stream</h2>
-<p>Like promises and tasks, streams use the <a href="http://domenic.me/2014/02/13/the-revealing-constructor-pattern/">revealing constructor
-pattern</a>.</p>
+<p>Like promises, streams use the <a href="http://domenic.me/2014/02/13/the-revealing-constructor-pattern/">revealing constructor pattern</a>.</p>
 <p>However, unlike promises, streams are symmetric and support bidirectional
 communication.
 By convention, the stream constructor creates an output stream and reveals
@@ -570,7 +574,7 @@ Stream.prototype.forEach = <span class="hljs-function"><span class="hljs-keyword
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> result = <span class="hljs-keyword">new</span> Task(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> result = Task.defer(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{</pre></div></div>
             
         </li>
         
@@ -621,8 +625,8 @@ we have seen the last iteration.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = <span class="hljs-keyword">new</span> Signal(<span class="hljs-number">0</span>);
-    <span class="hljs-keyword">var</span> done = <span class="hljs-keyword">new</span> Signal(<span class="hljs-literal">false</span>);</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = Observable.signal(<span class="hljs-number">0</span>);
+    <span class="hljs-keyword">var</span> done = Observable.signal(<span class="hljs-literal">false</span>);</pre></div></div>
             
         </li>
         
@@ -742,7 +746,7 @@ and no more iterations are available.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    count.out.equals(Signal.return(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{
+            <div class="content"><div class='highlight'><pre>    count.out.equals(Observable.yield(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{
         <span class="hljs-keyword">if</span> (done) {
             result.in.return(returnValue);
         }
@@ -803,8 +807,8 @@ we have seen the last iteration.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = <span class="hljs-keyword">new</span> Signal(<span class="hljs-number">0</span>);
-    <span class="hljs-keyword">var</span> done = <span class="hljs-keyword">new</span> Signal(<span class="hljs-literal">false</span>);</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = Observable.signal(<span class="hljs-number">0</span>);
+    <span class="hljs-keyword">var</span> done = Observable.signal(<span class="hljs-literal">false</span>);</pre></div></div>
             
         </li>
         
@@ -928,7 +932,7 @@ the output stream with the same return value as the input stream.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    count.out.equals(Signal.return(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{
+            <div class="content"><div class='highlight'><pre>    count.out.equals(Observable.yield(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{
         <span class="hljs-keyword">if</span> (done) {
             result.in.return(returnValue);
         }
@@ -972,8 +976,8 @@ condition.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = <span class="hljs-keyword">new</span> Signal(<span class="hljs-number">0</span>);
-    <span class="hljs-keyword">var</span> done = <span class="hljs-keyword">new</span> Signal(<span class="hljs-literal">false</span>);
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> count = Observable.signal(<span class="hljs-number">0</span>);
+    <span class="hljs-keyword">var</span> done = Observable.signal(<span class="hljs-literal">false</span>);
     <span class="hljs-keyword">var</span> returnValue;
     <span class="hljs-keyword">this</span>.do(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{</pre></div></div>
             
@@ -1054,7 +1058,7 @@ that the job is done.</p>
         }
     }, result.in.throw, limit);
     <span class="hljs-comment">/* when (count == 0 &amp;&amp; done) */</span>
-    count.out.equals(Signal.return(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{</pre></div></div>
+    count.out.equals(Observable.yield(<span class="hljs-number">0</span>)).and(done.out).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(done)</span> </span>{</pre></div></div>
             
         </li>
         

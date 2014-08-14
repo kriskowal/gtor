@@ -34,13 +34,18 @@
               </a>
             
               
+              <a class="source" href="observable.html">
+                observable.js
+              </a>
+            
+              
               <a class="source" href="operators.html">
                 operators.js
               </a>
             
               
-              <a class="source" href="signal.html">
-                signal.js
+              <a class="source" href="promise.html">
+                promise.js
               </a>
             
               
@@ -87,8 +92,7 @@
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-2">&#182;</a>
               </div>
-              <p>A Task is analogous to a Deferred, and a TaskObservable is a cancelable
-promise.
+              <p>A Task is a cancelable variant of a promise.
 Like a promise, the observable is a proxy for the result of some work.
 The interface is largely the same, but a observable can only have one
 observer.
@@ -120,13 +124,27 @@ resources proactively.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-3">&#182;</a>
               </div>
-              <p>The resolver and observable side of a task share a hidden internal record
-with their shared state.
-Handlers are an alternative to using closures.</p>
+              <h2 id="task">Task</h2>
+<p>The consumer side of a task should receive the task’s observable.
+This object provides the ability to register exactly one observer for the
+result of the task, and the ability to cancel the task with an error.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">var</span> handlers = <span class="hljs-keyword">new</span> WeakMap();</pre></div></div>
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span><span class="hljs-params">(setup, thisp)</span> </span>{
+    <span class="hljs-keyword">var</span> deferred = Task.defer();
+    <span class="hljs-keyword">var</span> handler = handlers.get(deferred.out);
+    handler.cancel = setup.call(thisp, deferred.in.return, deferred.in.throw);
+    <span class="hljs-keyword">return</span> deferred.out;
+}
+
+<span class="hljs-comment">/*
+TODO Task.prototype = Object.create(Observable);
+Such that it is possible to create parallel signaling for status and estimated
+time to completion, or other arbitrary signals from the resolver to the
+observable.
+*/</span></pre></div></div>
             
         </li>
         
@@ -137,24 +155,18 @@ Handlers are an alternative to using closures.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-4">&#182;</a>
               </div>
-              <h2 id="task">Task</h2>
-<p>The task constructor creates a resolver “in” and an observer “out” pair
-with some shared internal state.
-Particularly, since tasks can be canceled, the task constructor accepts a
-reference to the cancellation method and optionally the instance that hosts
-it.</p>
+              <p>The <code>done</code> method registers an observer for any combination of completion or
+failure with the given methods and optional context object.
+The <code>done</code> method does not return a new task and does not capture errors
+thrown by the observer methods.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>
-<span class="hljs-built_in">module</span>.exports = Task;
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span><span class="hljs-params">(cancel, thisp)</span> </span>{ <span class="hljs-comment">// TODO estimate, label</span>
-    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> TaskHandler(); <span class="hljs-comment">// TODO polymorph constructors</span>
-    <span class="hljs-keyword">this</span>.in = <span class="hljs-keyword">new</span> TaskResolver(handler);
-    <span class="hljs-keyword">this</span>.out = <span class="hljs-keyword">new</span> TaskObservable(handler);
-    handler.cancel = cancel;
-    handler.cancelThisp = thisp;
-}</pre></div></div>
+            <div class="content"><div class='highlight'><pre>Task.prototype.done = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{
+    <span class="hljs-keyword">var</span> self = <span class="hljs-keyword">this</span>;
+    <span class="hljs-keyword">var</span> handler = Task_getHandler(self);
+    handler.done(onreturn, onthrow, thisp);
+};</pre></div></div>
             
         </li>
         
@@ -165,21 +177,13 @@ it.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-5">&#182;</a>
               </div>
-              <p>The <code>isTask</code> utility method allows us to identify a task that was
-constructed by this library.
-This library does not attempt to make it provably impossible to trick the
-Task.</p>
+              <p>The <code>then</code> method registers an observer for any combination of completion or
+failure, and creates a new task that will be completed with the result of
+either the completion or failure handler.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>Task.isTask = isTask;
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">isTask</span><span class="hljs-params">(object)</span> </span>{
-    <span class="hljs-keyword">return</span> (
-        <span class="hljs-built_in">Object</span>(object) === object &amp;&amp;
-        !!handlers.get(object) &amp;&amp;
-        object <span class="hljs-keyword">instanceof</span> TaskObservable
-    );
-};</pre></div></div>
+            <div class="content"><div class='highlight'><pre>Task.prototype.then = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{</pre></div></div>
             
         </li>
         
@@ -190,762 +194,13 @@ Task.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-6">&#182;</a>
               </div>
-              <p>The <code>isThenable</code> method is used internally to identify other singular
-asynchronous duck types, including promises, which can be coerced into
-tasks.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">isThenable</span><span class="hljs-params">(object)</span> </span>{
-    <span class="hljs-keyword">return</span> <span class="hljs-built_in">Object</span>(object) === object &amp;&amp; <span class="hljs-keyword">typeof</span> object.then === <span class="hljs-string">"function"</span>;
-}</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-7">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-7">&#182;</a>
-              </div>
-              <p>The <code>return</code> function lifts a value into a task that has already completed
-with a value.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Task.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
-    <span class="hljs-keyword">if</span> (isTask(value)) {
-        <span class="hljs-keyword">return</span> value;
-    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isThenable(value)) {
-        <span class="hljs-comment">/* TODO implement thenable coercion */</span>
-        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Thenables not yet implemented"</span>);
-    } <span class="hljs-keyword">else</span> {
-        <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> TaskHandler();
-        handler.state = <span class="hljs-string">"fulfilled"</span>;
-        handler.value = value;
-        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> TaskObservable(handler);
-    }
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-8">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-8">&#182;</a>
-              </div>
-              <p>The <code>throw</code> function lifts an error into a task that has already failed with
-that error.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Task.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
-    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> TaskHandler();
-    handler.state = <span class="hljs-string">"rejected"</span>;
-    handler.error = error;
-    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> TaskObservable(handler);
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-9">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-9">&#182;</a>
-              </div>
-              <p>The <code>all</code> function accepts an array of tasks, or values that can be coerced
-into tasks, and produces a task that when completed will produce an array of
-the individual completion values.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Task.all = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_all</span><span class="hljs-params">(tasks)</span> </span>{</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-10">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-10">&#182;</a>
-              </div>
-              <p>If the task is cancelled, or if any individual task fails, all of the
-outstanding individual tasks will be cancelled.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">cancelAll</span><span class="hljs-params">(error)</span> </span>{
-        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> otherIndex = <span class="hljs-number">0</span>; otherIndex &lt; tasks.length; otherIndex++) {</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-11">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-11">&#182;</a>
-              </div>
-              <p>Note that throwing an error upstream consitutes talking back to the producer.
-This is a reminder that tasks are a cooperation between a single
-consumer and a single producer and that information flows both
-ways and in fact allows information to propagate laterally by
-passing up one stream and down another.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>            tasks[otherIndex].throw(error);
-        }
-        result.in.throw(error);
-    }</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-12">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-12">&#182;</a>
-              </div>
-              <p>The number of outstanding tasks, tracked to determine when all tasks are
-completed.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> remaining = tasks.length;
-    <span class="hljs-keyword">var</span> result = <span class="hljs-keyword">new</span> Task(cancelAll);
-    <span class="hljs-keyword">var</span> results = <span class="hljs-built_in">Array</span>(tasks.length);
-    <span class="hljs-comment">/* TODO estimated time to completion, label signals */</span>
-    <span class="hljs-keyword">var</span> estimates = [];
-    <span class="hljs-keyword">var</span> estimate = -<span class="hljs-literal">Infinity</span>;
-    <span class="hljs-keyword">var</span> setEstimate;
-    <span class="hljs-keyword">var</span> estimates = tasks.map(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_all_each</span><span class="hljs-params">(task, index)</span> </span>{
-        task = tasks[index] = Task.return(task); <span class="hljs-comment">// Coerce values to tasks</span>
-        task.done(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_all_anyReturn</span><span class="hljs-params">(value)</span> </span>{
-            results[index] = value;
-            <span class="hljs-keyword">if</span> (--remaining === <span class="hljs-number">0</span>) {
-                result.in.return(results);
-            }
-        }, cancelAll);
-    });
-    <span class="hljs-keyword">return</span> result.out;
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-13">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-13">&#182;</a>
-              </div>
-              <p>The <code>any</code> method accepts an array of tasks, or value coercable to tasks, and
-returns a task that will receive the value from the first task that
-completes with a value.
-After one succeeds, all remaining tasks will be cancelled.
-If one of the tasks fails, it will be ignored.
-If all tasks fail, this task will fail with the last error.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Task.any = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(tasks)</span> </span>{
-    <span class="hljs-comment">/* TODO */</span>
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-14">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-14">&#182;</a>
-              </div>
-              <p>The <code>any</code> method accepts an array of tasks, or value coercable to tasks, and
-returns a task that will receive the value or error of the first task that
-either completes or fails.
-Afterward, all remaining tasks will be cancelled.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Task.race = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(tasks)</span> </span>{
-    <span class="hljs-comment">/* TODO */</span>
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-15">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-15">&#182;</a>
-              </div>
-              <p>The <code>delay</code> method accepts a duration of time in miliseconds and returns a
-task that will complete with the given value after that amount of time has
-elapsed.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Task.delay = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(ms, value)</span> </span>{
-    <span class="hljs-keyword">return</span> Task.return(value).delay(ms);
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-16">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-16">&#182;</a>
-              </div>
-              <h2 id="taskhandler">TaskHandler</h2>
-<p>A task handler stores the common private state between a task resolver and a
-task observable.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">TaskHandler</span><span class="hljs-params">()</span> </span>{</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-17">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-17">&#182;</a>
-              </div>
-              <p>When a task is resolved, it “becomes” a different task and its
-observable, if any, must be forwarded to the new task handler.
-In the <code>become</code> method, we also adjust the “handlers” table so any
-subsequent request for this handler jumps to the end of the “became”
-chain.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.became = <span class="hljs-literal">null</span>;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-18">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-18">&#182;</a>
-              </div>
-              <p>Tasks may be created with a corresponding canceler.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.cancel = <span class="hljs-literal">null</span>;
-    <span class="hljs-keyword">this</span>.cancelThisp = <span class="hljs-literal">null</span>;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-19">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-19">&#182;</a>
-              </div>
-              <p>Tasks may be “pending”, “fulfilled” with a value, or “rejected” with an
-error</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.state = <span class="hljs-string">"pending"</span>;
-    <span class="hljs-keyword">this</span>.value = <span class="hljs-literal">null</span>;
-    <span class="hljs-keyword">this</span>.error = <span class="hljs-literal">null</span>;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-20">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-20">&#182;</a>
-              </div>
-              <p>A task may only be observed once.
-Any future attempt to observe a task will throw an error.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.observed = <span class="hljs-literal">false</span>;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-21">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-21">&#182;</a>
-              </div>
-              <p>Since a task can only be observed once, we only need to track one
-handler for fulfillment with a value or rejection with an error.
-A promise keeps an array of handlers to forward messages to.
-These handlers can be forgotten once a task settles since thereafter
-the observer would be informed immediately.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.onreturn = <span class="hljs-literal">null</span>;
-    <span class="hljs-keyword">this</span>.onthrow = <span class="hljs-literal">null</span>;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-22">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-22">&#182;</a>
-              </div>
-              <p>The object to use as <code>this</code> in the context of <code>onreturn</code> and <code>onthrow</code>.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.thisp = <span class="hljs-literal">null</span>;
-}</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-23">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-23">&#182;</a>
-              </div>
-              <p>Since a task handler can become another task handler, this utility method
-will look up the end of the chain of “became” properties and rewrite the
-handler look up table so we never have to walk the same length of chain
-again.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_getHandler</span><span class="hljs-params">(task)</span> </span>{
-    <span class="hljs-keyword">var</span> handler = handlers.get(task);
-    <span class="hljs-keyword">while</span> (handler &amp;&amp; handler.became) {
-        handler = handler.became;
-    }
-    handlers.set(task, handler);
-    <span class="hljs-keyword">return</span> handler;
-}</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-24">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-24">&#182;</a>
-              </div>
-              <p>The <code>done</code> method is kernel for subscribing to a task observer.
-If the task has already completed or failed, this will also arrange for the
-observer to be notified as soon as possible.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.done = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{
-    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.observed) {
-        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Can't observe a task multiple times. Use fork"</span>);
-    }
-    <span class="hljs-keyword">this</span>.observed = <span class="hljs-literal">true</span>;
-    <span class="hljs-keyword">this</span>.onreturn = onreturn;
-    <span class="hljs-keyword">this</span>.onthrow = onthrow;
-    <span class="hljs-keyword">this</span>.thisp = thisp;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-25">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-25">&#182;</a>
-              </div>
-              <p>If we are observing a task after it completed or failed, we dispatch the
-result immediately.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state !== <span class="hljs-string">"pending"</span>) {</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-26">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-26">&#182;</a>
-              </div>
-              <p>Instead of passing a callable closure, we pass ourself to avoid
-allocating another object.
-The task handler serves as a psuedo-function by implementing “call”.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>        asap(<span class="hljs-keyword">this</span>);
-    }</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-27">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-27">&#182;</a>
-              </div>
-              <p>We handle the case of observing <em>before</em> completion or failure in the
-<code>become</code> method.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-28">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-28">&#182;</a>
-              </div>
-              <p>Above, we pass the task handler to <code>asap</code>.
-The event dispatcher treats functions and callable objects alike.
-This method will get called if this task has settled into a “fulfilled” or
-“rejected” state so we can call the appropriate handler.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.call = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
-    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state === <span class="hljs-string">"fulfilled"</span>) {
-        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.onreturn) {
-            <span class="hljs-keyword">this</span>.onreturn.call(<span class="hljs-keyword">this</span>.thisp, <span class="hljs-keyword">this</span>.value);
-        }
-    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state === <span class="hljs-string">"rejected"</span>) {
-        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.onthrow) {
-            <span class="hljs-keyword">this</span>.onthrow.call(<span class="hljs-keyword">this</span>.thisp, <span class="hljs-keyword">this</span>.error);
-        } <span class="hljs-keyword">else</span> {
-            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">this</span>.error;
-        }
-    }</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-29">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-29">&#182;</a>
-              </div>
-              <p>We release the handlers so they can be potentially garbage collected.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.onreturn = <span class="hljs-literal">null</span>;
-    <span class="hljs-keyword">this</span>.onthrow = <span class="hljs-literal">null</span>;
-    <span class="hljs-keyword">this</span>.thisp = <span class="hljs-literal">null</span>;
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-30">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-30">&#182;</a>
-              </div>
-              <p>The <code>become</code> method is the kernel of the task resolver.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.become = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(task)</span> </span>{
-    <span class="hljs-keyword">var</span> handler = Task_getHandler(task);</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-31">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-31">&#182;</a>
-              </div>
-              <p>A task can only be resolved once.
-Subsequent resolutions are ignored.
-Ignoring, rather than throwing an error, greatly simplifies a great
-number of cases, like racing tasks and cancelling tasks, where handling
-an error would be unnecessary and inconvenient.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state !== <span class="hljs-string">"pending"</span>) {
-        <span class="hljs-keyword">return</span>;
-    }</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-32">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-32">&#182;</a>
-              </div>
-              <p>The <code>became</code> property gets used by the internal handler getter to
-rewrite the handler table and shorten chains.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.became = handler;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-33">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-33">&#182;</a>
-              </div>
-              <p>Once a task completes or fails, we no longer need to retain the
-canceler.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.cancel = <span class="hljs-literal">null</span>;
-    <span class="hljs-keyword">this</span>.cancelThisp = <span class="hljs-literal">null</span>;</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-34">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-34">&#182;</a>
-              </div>
-              <p>If an observer subscribed before it completed or failed, we forward the
-resolution.
-If an observer subscribes later, we take care of that case in <code>done</code>.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.observed) {
-        handler.done(<span class="hljs-keyword">this</span>.onreturn, <span class="hljs-keyword">this</span>.onthrow, <span class="hljs-keyword">this</span>.thisp);
-    }
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-35">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-35">&#182;</a>
-              </div>
-              <p>The <code>throw</code> method is used by the promise observer to cancel the task from
-the consumer side.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
-    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.cancel) {
-        <span class="hljs-keyword">this</span>.cancel.call(<span class="hljs-keyword">this</span>.cancelThisp);
-    }
-    <span class="hljs-keyword">this</span>.become(Task.throw(error || <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Consumer canceled task"</span>)));
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-36">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-36">&#182;</a>
-              </div>
-              <h2 id="taskresolver">TaskResolver</h2>
-<p>The producer side of a task should get a reference to a task’s resolver.
-The object provides the capability to settle the task with a completion
-value or a failure error.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">TaskResolver</span><span class="hljs-params">(handler)</span> </span>{
-    handlers.set(<span class="hljs-keyword">this</span>, handler);</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-37">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-37">&#182;</a>
-              </div>
-              <p>The task resolver implicitly binds its return and throw methods so these
-can be passed as free functions.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.return = <span class="hljs-keyword">this</span>.return.bind(<span class="hljs-keyword">this</span>);
-    <span class="hljs-keyword">this</span>.throw = <span class="hljs-keyword">this</span>.throw.bind(<span class="hljs-keyword">this</span>);
-}</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-38">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-38">&#182;</a>
-              </div>
-              <p>The <code>return</code> method sets the tasks state to “fulfilled” (in the words of
-promises) or “completed” (in the vernacular of tasks), with a given value.
-If the corresponding observer was registered already, this will inform
-the observer as soon as possible.
-If the corresponding observer gets registered later, it will receive the
-result as soon as possible thereafter.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskResolver.prototype.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
-    <span class="hljs-keyword">var</span> handler = Task_getHandler(<span class="hljs-keyword">this</span>);
-    handler.become(Task.return(value));
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-39">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-39">&#182;</a>
-              </div>
-              <p>The <code>throw</code> method sets the tasks state to “rejected” (a term borrowed from
-promises) or “failed” (the corresponding task jargon), with the given error.
-Again, if the corresponding observer was registered already, this will
-inform the observer as soon as possible.
-If the corresponding observer gets registered later, it will receive the
-result as soon as possible thereafter.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskResolver.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
-    <span class="hljs-keyword">var</span> handler = Task_getHandler(<span class="hljs-keyword">this</span>);
-    handler.become(Task.throw(error));
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-40">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-40">&#182;</a>
-              </div>
-              <h2 id="taskobservable">TaskObservable</h2>
-<p>The consumer side of a task should receive the task’s observable.
-This object provides the ability to register exactly one observer for the
-result of the task, and the ability to cancel the task with an error.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">TaskObservable</span><span class="hljs-params">(handler)</span> </span>{
-    handlers.set(<span class="hljs-keyword">this</span>, handler);
-}
-
-<span class="hljs-comment">/*
-TODO TaskObservable.prototype = Object.create(Observable);
-Such that it is possible to create parallel signaling for status and estimated
-time to completion, or other arbitrary signals from the resolver to the
-observable.
-*/</span></pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-41">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-41">&#182;</a>
-              </div>
-              <p>The <code>done</code> method registers an observer for any combination of completion or
-failure with the given methods and optional context object.
-The <code>done</code> method does not return a new task and does not capture errors
-thrown by the observer methods.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.done = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{
-    <span class="hljs-keyword">var</span> self = <span class="hljs-keyword">this</span>;
-    <span class="hljs-keyword">var</span> handler = Task_getHandler(self);
-    handler.done(onreturn, onthrow, thisp);
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-42">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-42">&#182;</a>
-              </div>
-              <p>The <code>then</code> method registers an observer for any combination of completion or
-failure, and creates a new task that will be completed with the result of
-either the completion or failure handler.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.then = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-43">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-43">&#182;</a>
-              </div>
               <p>TODO accept status and estimated time to completion arguments in
 arbitrary order.</p>
 
             </div>
             
             <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> handler = Task_getHandler(<span class="hljs-keyword">this</span>);
-    <span class="hljs-keyword">var</span> task = <span class="hljs-keyword">new</span> Task(<span class="hljs-keyword">this</span>.cancel, <span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">var</span> task = Task.defer(<span class="hljs-keyword">this</span>.cancel, <span class="hljs-keyword">this</span>);
     <span class="hljs-keyword">var</span> _onreturn, _onthrow;
     <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> onreturn === <span class="hljs-string">"function"</span>) {
         _onreturn = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
@@ -972,11 +227,11 @@ arbitrary order.</p>
         </li>
         
         
-        <li id="section-44">
+        <li id="section-7">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-44">&#182;</a>
+                <a class="pilcrow" href="#section-7">&#182;</a>
               </div>
               <p>The <code>spread</code> method fills a temporary need to be able to spread an array
 into the arguments of the completion handler of a <code>then</code> observer.
@@ -985,7 +240,7 @@ signature of the method.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.spread = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.spread = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{
     <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(args)</span> </span>{
         <span class="hljs-keyword">return</span> onreturn.apply(thisp, args);
     }, onthrow, thisp);
@@ -994,11 +249,11 @@ signature of the method.</p>
         </li>
         
         
-        <li id="section-45">
+        <li id="section-8">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-45">&#182;</a>
+                <a class="pilcrow" href="#section-8">&#182;</a>
               </div>
               <p>The <code>catch</code> method registers an error observer on a task and returns a new
 task to be completed with the result of the observer.
@@ -1007,18 +262,18 @@ to complete this task to another stage of the process.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.catch = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onthrow, thisp)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.catch = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onthrow, thisp)</span> </span>{
     <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.then(<span class="hljs-literal">null</span>, onthrow, thisp);
 };</pre></div></div>
             
         </li>
         
         
-        <li id="section-46">
+        <li id="section-9">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-46">&#182;</a>
+                <a class="pilcrow" href="#section-9">&#182;</a>
               </div>
               <p>The <code>finally</code> method registers an observer for when the task either
 completes or fails and returns a new task to perform some further work but
@@ -1026,7 +281,7 @@ forward the original value or error otherwise.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.finally = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onsettle, thisp)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.finally = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onsettle, thisp)</span> </span>{
     <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
         <span class="hljs-keyword">return</span> onsettle.call(thisp).then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_finally_value</span><span class="hljs-params">()</span> </span>{
             <span class="hljs-keyword">return</span> value;
@@ -1041,18 +296,18 @@ forward the original value or error otherwise.</p>
         </li>
         
         
-        <li id="section-47">
+        <li id="section-10">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-47">&#182;</a>
+                <a class="pilcrow" href="#section-10">&#182;</a>
               </div>
               <p>The <code>get</code> method creates a task that will get a property of the completion
 object for this task.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.get = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(key)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.get = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(key)</span> </span>{
     <span class="hljs-keyword">return</span> task.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(object)</span> </span>{
         <span class="hljs-keyword">return</span> object[key];
     });
@@ -1061,18 +316,18 @@ object for this task.</p>
         </li>
         
         
-        <li id="section-48">
+        <li id="section-11">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-48">&#182;</a>
+                <a class="pilcrow" href="#section-11">&#182;</a>
               </div>
               <p>The <code>call</code> method creates a task that will call the function that is the
 completion value of this task with the given spread arguments.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.call = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(thisp <span class="hljs-comment">/*, ...args*/</span>)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.call = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(thisp <span class="hljs-comment">/*, ...args*/</span>)</span> </span>{
     <span class="hljs-keyword">var</span> args = [];
     <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> index = <span class="hljs-number">1</span>; index &lt; <span class="hljs-built_in">arguments</span>.length; index++) {
         args[index - <span class="hljs-number">1</span>] = <span class="hljs-built_in">arguments</span>[index];
@@ -1085,18 +340,18 @@ completion value of this task with the given spread arguments.</p>
         </li>
         
         
-        <li id="section-49">
+        <li id="section-12">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-49">&#182;</a>
+                <a class="pilcrow" href="#section-12">&#182;</a>
               </div>
               <p>The <code>invoke</code> method creates a task that will invoke a property of the
 completion object for this task.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.invoke = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(name <span class="hljs-comment">/*, ...args*/</span>)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.invoke = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(name <span class="hljs-comment">/*, ...args*/</span>)</span> </span>{
     <span class="hljs-keyword">var</span> args = [];
     <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> index = <span class="hljs-number">1</span>; index &lt; <span class="hljs-built_in">arguments</span>.length; index++) {
         args[index - <span class="hljs-number">1</span>] = <span class="hljs-built_in">arguments</span>[index];
@@ -1109,11 +364,11 @@ completion object for this task.</p>
         </li>
         
         
-        <li id="section-50">
+        <li id="section-13">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-50">&#182;</a>
+                <a class="pilcrow" href="#section-13">&#182;</a>
               </div>
               <p>The <code>thenReturn</code> method registers an observer for the completion of this
 task and returns a task that will be completed with the given value when
@@ -1121,7 +376,7 @@ this task is completed.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.thenReturn = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.thenReturn = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
     <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
         <span class="hljs-keyword">return</span> value;
     });
@@ -1130,11 +385,11 @@ this task is completed.</p>
         </li>
         
         
-        <li id="section-51">
+        <li id="section-14">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-51">&#182;</a>
+                <a class="pilcrow" href="#section-14">&#182;</a>
               </div>
               <p>The <code>thenReturn</code> method registers an observer for the completion of this
 task and returns a task that will fail with the given error when this task
@@ -1142,7 +397,7 @@ is completed.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.thenThrow = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.thenThrow = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
     <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
         <span class="hljs-keyword">return</span> error;
     });
@@ -1151,17 +406,17 @@ is completed.</p>
         </li>
         
         
-        <li id="section-52">
+        <li id="section-15">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-52">&#182;</a>
+                <a class="pilcrow" href="#section-15">&#182;</a>
               </div>
               <p>Effects cancelation from the consumer side.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
     <span class="hljs-keyword">var</span> handler = Task_getHandler(<span class="hljs-keyword">this</span>);
     <span class="hljs-keyword">if</span> (handler.cancel) {
         handler.throw(error);
@@ -1171,11 +426,11 @@ is completed.</p>
         </li>
         
         
-        <li id="section-53">
+        <li id="section-16">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-53">&#182;</a>
+                <a class="pilcrow" href="#section-16">&#182;</a>
               </div>
               <p>A task can only be observed once, but it can be forked.
 The <code>fork</code> method returns a new task that will observe the same completion
@@ -1185,16 +440,16 @@ task’s canceller to propagate.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.fork = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{</pre></div></div>
+            <div class="content"><div class='highlight'><pre>Task.prototype.fork = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{</pre></div></div>
             
         </li>
         
         
-        <li id="section-54">
+        <li id="section-17">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-54">&#182;</a>
+                <a class="pilcrow" href="#section-17">&#182;</a>
               </div>
               <p>The fork method works by fiddling with the handler of this task.
 First, we extract this task’s handler and make it the new parent for two
@@ -1213,7 +468,7 @@ child tasks.</p>
     <span class="hljs-comment">/* TODO estimated time to completion forwarding */</span>
     <span class="hljs-comment">/* TODO use a signal operator to propagate cancellation */</span>
     <span class="hljs-keyword">var</span> leftCanceled = <span class="hljs-literal">false</span>, rightCanceled = <span class="hljs-literal">false</span>;
-    <span class="hljs-keyword">var</span> left = <span class="hljs-keyword">new</span> Task(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">var</span> left = Task.defer(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
         <span class="hljs-keyword">if</span> (leftCanceled) {
             <span class="hljs-keyword">return</span>;
         }
@@ -1222,7 +477,7 @@ child tasks.</p>
             parentHandler.throw(error);
         }
     });
-    <span class="hljs-keyword">var</span> right = <span class="hljs-keyword">new</span> Task(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">var</span> right = Task.defer(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
         <span class="hljs-keyword">if</span> (rightCanceled) {
             <span class="hljs-keyword">return</span>;
         }
@@ -1235,11 +490,11 @@ child tasks.</p>
         </li>
         
         
-        <li id="section-55">
+        <li id="section-18">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-55">&#182;</a>
+                <a class="pilcrow" href="#section-18">&#182;</a>
               </div>
               <p>We replace our own handler with the left child</p>
 
@@ -1250,11 +505,11 @@ child tasks.</p>
         </li>
         
         
-        <li id="section-56">
+        <li id="section-19">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-56">&#182;</a>
+                <a class="pilcrow" href="#section-19">&#182;</a>
               </div>
               <p>And return the task with the right child handler</p>
 
@@ -1266,11 +521,11 @@ child tasks.</p>
         </li>
         
         
-        <li id="section-57">
+        <li id="section-20">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-57">&#182;</a>
+                <a class="pilcrow" href="#section-20">&#182;</a>
               </div>
               <p>The <code>delay</code> method of a task adds a delay of some miliseconds after the task
 <em>completes</em>.
@@ -1279,13 +534,13 @@ task.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.delay = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(ms)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.delay = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(ms)</span> </span>{
     <span class="hljs-keyword">var</span> self = <span class="hljs-keyword">this</span>;
-    <span class="hljs-keyword">var</span> task = <span class="hljs-keyword">new</span> Task(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">cancelDelayedTask</span><span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">var</span> task = Task.defer(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">cancelDelayedTask</span><span class="hljs-params">()</span> </span>{
         self.throw();
         clearTimeout(handle);
     });
-    <span class="hljs-keyword">var</span> result = <span class="hljs-keyword">new</span> Task();
+    <span class="hljs-keyword">var</span> result = Task.defer();
     <span class="hljs-keyword">var</span> handle = setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">taskDelayed</span><span class="hljs-params">()</span> </span>{
         task.in.return(result.out);
     }, ms);
@@ -1300,20 +555,20 @@ task.</p>
         </li>
         
         
-        <li id="section-58">
+        <li id="section-21">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-58">&#182;</a>
+                <a class="pilcrow" href="#section-21">&#182;</a>
               </div>
               <p>The <code>timeout</code> method will automatically cancel a task if it takes longer
 than a given delay in miliseconds.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>TaskObservable.prototype.timeout = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(ms, message)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Task.prototype.timeout = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(ms, message)</span> </span>{
     <span class="hljs-keyword">var</span> self = <span class="hljs-keyword">this</span>;
-    <span class="hljs-keyword">var</span> task = <span class="hljs-keyword">new</span> Task(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">cancelTimeoutTask</span><span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">var</span> task = Task.defer(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">cancelTimeoutTask</span><span class="hljs-params">()</span> </span>{
         <span class="hljs-keyword">this</span>.throw();
         clearTimeout(handle);
     }, <span class="hljs-keyword">this</span>);
@@ -1329,6 +584,767 @@ than a given delay in miliseconds.</p>
         task.in.throw(error);
     });
     <span class="hljs-keyword">return</span> task.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-22">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-22">&#182;</a>
+              </div>
+              <h2 id="completer">Completer</h2>
+<p>The producer side of a task should get a reference to a task’s resolver.
+The object provides the capability to settle the task with a completion
+value or a failure error.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Completer</span><span class="hljs-params">(handler)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-23">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-23">&#182;</a>
+              </div>
+              <p>The task resolver implicitly binds its return and throw methods so these
+can be passed as free functions.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.return = <span class="hljs-keyword">this</span>.return.bind(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">this</span>.throw = <span class="hljs-keyword">this</span>.throw.bind(<span class="hljs-keyword">this</span>);
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-24">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-24">&#182;</a>
+              </div>
+              <p>The <code>return</code> method sets the tasks state to “fulfilled” (in the words of
+promises) or “completed” (in the vernacular of tasks), with a given value.
+If the corresponding observer was registered already, this will inform
+the observer as soon as possible.
+If the corresponding observer gets registered later, it will receive the
+result as soon as possible thereafter.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Completer.prototype.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = Task_getHandler(<span class="hljs-keyword">this</span>);
+    handler.become(Task.return(value));
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-25">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-25">&#182;</a>
+              </div>
+              <p>The <code>throw</code> method sets the tasks state to “rejected” (a term borrowed from
+promises) or “failed” (the corresponding task jargon), with the given error.
+Again, if the corresponding observer was registered already, this will
+inform the observer as soon as possible.
+If the corresponding observer gets registered later, it will receive the
+result as soon as possible thereafter.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Completer.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = Task_getHandler(<span class="hljs-keyword">this</span>);
+    handler.become(Task.throw(error));
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-26">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-26">&#182;</a>
+              </div>
+              <h2 id="task">Task</h2>
+<p>The task constructor creates a resolver “in” and an observer “out” pair
+with some shared internal state.
+Particularly, since tasks can be canceled, the task constructor accepts a
+reference to the cancellation method and optionally the instance that hosts
+it.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-built_in">module</span>.exports = Task;
+Task.defer = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(cancel, thisp)</span> </span>{ <span class="hljs-comment">// TODO estimate, label</span>
+    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> TaskHandler(); <span class="hljs-comment">// TODO polymorph constructors</span>
+    <span class="hljs-keyword">var</span> input = <span class="hljs-built_in">Object</span>.create(Completer.prototype);
+    <span class="hljs-keyword">var</span> output = <span class="hljs-built_in">Object</span>.create(Task.prototype);
+    Completer_bind(input);
+    handlers.set(input, handler);
+    handlers.set(output, handler);
+    handler.cancel = cancel;
+    handler.cancelThisp = thisp;
+    <span class="hljs-keyword">return</span> {<span class="hljs-keyword">in</span>: input, out: output};
+}
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Completer_bind</span><span class="hljs-params">(completer)</span> </span>{
+    completer.return = completer.return.bind(completer);
+    completer.throw = completer.throw.bind(completer);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-27">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-27">&#182;</a>
+              </div>
+              <p>The <code>isTask</code> utility method allows us to identify a task that was
+constructed by this library.
+This library does not attempt to make it provably impossible to trick the
+Task.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Task.isTask = isTask;
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">isTask</span><span class="hljs-params">(object)</span> </span>{
+    <span class="hljs-keyword">return</span> (
+        <span class="hljs-built_in">Object</span>(object) === object &amp;&amp;
+        !!handlers.get(object) &amp;&amp;
+        object <span class="hljs-keyword">instanceof</span> Task
+    );
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-28">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-28">&#182;</a>
+              </div>
+              <p>The <code>isThenable</code> method is used internally to identify other singular
+asynchronous duck types, including promises, which can be coerced into
+tasks.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">isThenable</span><span class="hljs-params">(object)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">Object</span>(object) === object &amp;&amp; <span class="hljs-keyword">typeof</span> object.then === <span class="hljs-string">"function"</span>;
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-29">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-29">&#182;</a>
+              </div>
+              <p>The <code>return</code> function lifts a value into a task that has already completed
+with a value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Task.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+    <span class="hljs-keyword">if</span> (isTask(value)) {
+        <span class="hljs-keyword">return</span> value;
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isThenable(value)) {
+        <span class="hljs-comment">/* TODO implement thenable coercion */</span>
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Thenables not yet implemented"</span>);
+    } <span class="hljs-keyword">else</span> {
+        <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> TaskHandler();
+        handler.state = <span class="hljs-string">"fulfilled"</span>;
+        handler.value = value;
+        <span class="hljs-keyword">var</span> task = <span class="hljs-built_in">Object</span>.create(Task.prototype);
+        handlers.set(task, handler);
+        <span class="hljs-keyword">return</span> task;
+    }
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-30">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-30">&#182;</a>
+              </div>
+              <p>The <code>throw</code> function lifts an error into a task that has already failed with
+that error.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Task.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> TaskHandler();
+    handler.state = <span class="hljs-string">"rejected"</span>;
+    handler.error = error;
+    <span class="hljs-keyword">var</span> task = <span class="hljs-built_in">Object</span>.create(Task.prototype);
+    handlers.set(task, handler);
+    <span class="hljs-keyword">return</span> task;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-31">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-31">&#182;</a>
+              </div>
+              <p>The <code>all</code> function accepts an array of tasks, or values that can be coerced
+into tasks, and produces a task that when completed will produce an array of
+the individual completion values.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Task.all = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_all</span><span class="hljs-params">(tasks)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-32">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-32">&#182;</a>
+              </div>
+              <p>If the task is cancelled, or if any individual task fails, all of the
+outstanding individual tasks will be cancelled.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">cancelAll</span><span class="hljs-params">(error)</span> </span>{
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> otherIndex = <span class="hljs-number">0</span>; otherIndex &lt; tasks.length; otherIndex++) {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-33">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-33">&#182;</a>
+              </div>
+              <p>Note that throwing an error upstream consitutes talking back to the producer.
+This is a reminder that tasks are a cooperation between a single
+consumer and a single producer and that information flows both
+ways and in fact allows information to propagate laterally by
+passing up one stream and down another.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            tasks[otherIndex].throw(error);
+        }
+        result.in.throw(error);
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-34">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-34">&#182;</a>
+              </div>
+              <p>The number of outstanding tasks, tracked to determine when all tasks are
+completed.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> remaining = tasks.length;
+    <span class="hljs-keyword">var</span> result = Task.defer(cancelAll);
+    <span class="hljs-keyword">var</span> results = <span class="hljs-built_in">Array</span>(tasks.length);
+    <span class="hljs-comment">/* TODO estimated time to completion, label signals */</span>
+    <span class="hljs-keyword">var</span> estimates = [];
+    <span class="hljs-keyword">var</span> estimate = -<span class="hljs-literal">Infinity</span>;
+    <span class="hljs-keyword">var</span> setEstimate;
+    <span class="hljs-keyword">var</span> estimates = tasks.map(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_all_each</span><span class="hljs-params">(task, index)</span> </span>{
+        task = tasks[index] = Task.return(task); <span class="hljs-comment">// Coerce values to tasks</span>
+        task.done(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_all_anyReturn</span><span class="hljs-params">(value)</span> </span>{
+            results[index] = value;
+            <span class="hljs-keyword">if</span> (--remaining === <span class="hljs-number">0</span>) {
+                result.in.return(results);
+            }
+        }, cancelAll);
+    });
+    <span class="hljs-keyword">return</span> result.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-35">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-35">&#182;</a>
+              </div>
+              <p>The <code>any</code> method accepts an array of tasks, or value coercable to tasks, and
+returns a task that will receive the value from the first task that
+completes with a value.
+After one succeeds, all remaining tasks will be cancelled.
+If one of the tasks fails, it will be ignored.
+If all tasks fail, this task will fail with the last error.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Task.any = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(tasks)</span> </span>{
+    <span class="hljs-comment">/* TODO */</span>
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-36">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-36">&#182;</a>
+              </div>
+              <p>The <code>any</code> method accepts an array of tasks, or value coercable to tasks, and
+returns a task that will receive the value or error of the first task that
+either completes or fails.
+Afterward, all remaining tasks will be cancelled.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Task.race = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(tasks)</span> </span>{
+    <span class="hljs-comment">/* TODO */</span>
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-37">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-37">&#182;</a>
+              </div>
+              <p>The <code>delay</code> method accepts a duration of time in miliseconds and returns a
+task that will complete with the given value after that amount of time has
+elapsed.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Task.delay = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(ms, value)</span> </span>{
+    <span class="hljs-keyword">return</span> Task.return(value).delay(ms);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-38">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-38">&#182;</a>
+              </div>
+              <h2 id="taskhandler">TaskHandler</h2>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-39">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-39">&#182;</a>
+              </div>
+              <p>The resolver and observable side of a task share a hidden internal record
+with their shared state.
+Handlers are an alternative to using closures.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">var</span> handlers = <span class="hljs-keyword">new</span> WeakMap();
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">TaskHandler</span><span class="hljs-params">()</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-40">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-40">&#182;</a>
+              </div>
+              <p>When a task is resolved, it “becomes” a different task and its
+observable, if any, must be forwarded to the new task handler.
+In the <code>become</code> method, we also adjust the “handlers” table so any
+subsequent request for this handler jumps to the end of the “became”
+chain.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.became = <span class="hljs-literal">null</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-41">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-41">&#182;</a>
+              </div>
+              <p>Tasks may be created with a corresponding canceler.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.cancel = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.cancelThisp = <span class="hljs-literal">null</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-42">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-42">&#182;</a>
+              </div>
+              <p>Tasks may be “pending”, “fulfilled” with a value, or “rejected” with an
+error</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.state = <span class="hljs-string">"pending"</span>;
+    <span class="hljs-keyword">this</span>.value = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.error = <span class="hljs-literal">null</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-43">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-43">&#182;</a>
+              </div>
+              <p>A task may only be observed once.
+Any future attempt to observe a task will throw an error.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.observed = <span class="hljs-literal">false</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-44">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-44">&#182;</a>
+              </div>
+              <p>Since a task can only be observed once, we only need to track one
+handler for fulfillment with a value or rejection with an error.
+A promise keeps an array of handlers to forward messages to.
+These handlers can be forgotten once a task settles since thereafter
+the observer would be informed immediately.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.onreturn = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.onthrow = <span class="hljs-literal">null</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-45">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-45">&#182;</a>
+              </div>
+              <p>The object to use as <code>this</code> in the context of <code>onreturn</code> and <code>onthrow</code>.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.thisp = <span class="hljs-literal">null</span>;
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-46">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-46">&#182;</a>
+              </div>
+              <p>Since a task handler can become another task handler, this utility method
+will look up the end of the chain of “became” properties and rewrite the
+handler look up table so we never have to walk the same length of chain
+again.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task_getHandler</span><span class="hljs-params">(task)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(task);
+    <span class="hljs-keyword">while</span> (handler &amp;&amp; handler.became) {
+        handler = handler.became;
+    }
+    handlers.set(task, handler);
+    <span class="hljs-keyword">return</span> handler;
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-47">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-47">&#182;</a>
+              </div>
+              <p>The <code>done</code> method is kernel for subscribing to a task observer.
+If the task has already completed or failed, this will also arrange for the
+observer to be notified as soon as possible.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.done = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(onreturn, onthrow, thisp)</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.observed) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Can't observe a task multiple times. Use fork"</span>);
+    }
+    <span class="hljs-keyword">this</span>.observed = <span class="hljs-literal">true</span>;
+    <span class="hljs-keyword">this</span>.onreturn = onreturn;
+    <span class="hljs-keyword">this</span>.onthrow = onthrow;
+    <span class="hljs-keyword">this</span>.thisp = thisp;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-48">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-48">&#182;</a>
+              </div>
+              <p>If we are observing a task after it completed or failed, we dispatch the
+result immediately.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state !== <span class="hljs-string">"pending"</span>) {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-49">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-49">&#182;</a>
+              </div>
+              <p>Instead of passing a callable closure, we pass ourself to avoid
+allocating another object.
+The task handler serves as a psuedo-function by implementing “call”.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        asap(<span class="hljs-keyword">this</span>);
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-50">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-50">&#182;</a>
+              </div>
+              <p>We handle the case of observing <em>before</em> completion or failure in the
+<code>become</code> method.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-51">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-51">&#182;</a>
+              </div>
+              <p>Above, we pass the task handler to <code>asap</code>.
+The event dispatcher treats functions and callable objects alike.
+This method will get called if this task has settled into a “fulfilled” or
+“rejected” state so we can call the appropriate handler.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.call = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state === <span class="hljs-string">"fulfilled"</span>) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.onreturn) {
+            <span class="hljs-keyword">this</span>.onreturn.call(<span class="hljs-keyword">this</span>.thisp, <span class="hljs-keyword">this</span>.value);
+        }
+    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state === <span class="hljs-string">"rejected"</span>) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.onthrow) {
+            <span class="hljs-keyword">this</span>.onthrow.call(<span class="hljs-keyword">this</span>.thisp, <span class="hljs-keyword">this</span>.error);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">this</span>.error;
+        }
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-52">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-52">&#182;</a>
+              </div>
+              <p>We release the handlers so they can be potentially garbage collected.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.onreturn = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.onthrow = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.thisp = <span class="hljs-literal">null</span>;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-53">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-53">&#182;</a>
+              </div>
+              <p>The <code>become</code> method is the kernel of the task resolver.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.become = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(task)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = Task_getHandler(task);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-54">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-54">&#182;</a>
+              </div>
+              <p>A task can only be resolved once.
+Subsequent resolutions are ignored.
+Ignoring, rather than throwing an error, greatly simplifies a great
+number of cases, like racing tasks and cancelling tasks, where handling
+an error would be unnecessary and inconvenient.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.state !== <span class="hljs-string">"pending"</span>) {
+        <span class="hljs-keyword">return</span>;
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-55">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-55">&#182;</a>
+              </div>
+              <p>The <code>became</code> property gets used by the internal handler getter to
+rewrite the handler table and shorten chains.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.became = handler;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-56">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-56">&#182;</a>
+              </div>
+              <p>Once a task completes or fails, we no longer need to retain the
+canceler.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">this</span>.cancel = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.cancelThisp = <span class="hljs-literal">null</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-57">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-57">&#182;</a>
+              </div>
+              <p>If an observer subscribed before it completed or failed, we forward the
+resolution.
+If an observer subscribes later, we take care of that case in <code>done</code>.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.observed) {
+        handler.done(<span class="hljs-keyword">this</span>.onreturn, <span class="hljs-keyword">this</span>.onthrow, <span class="hljs-keyword">this</span>.thisp);
+    }
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-58">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-58">&#182;</a>
+              </div>
+              <p>The <code>throw</code> method is used by the promise observer to cancel the task from
+the consumer side.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>TaskHandler.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.cancel) {
+        <span class="hljs-keyword">this</span>.cancel.call(<span class="hljs-keyword">this</span>.cancelThisp);
+    }
+    <span class="hljs-keyword">this</span>.become(Task.throw(error || <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Consumer canceled task"</span>)));
 };</pre></div></div>
             
         </li>

@@ -34,13 +34,18 @@
               </a>
             
               
+              <a class="source" href="observable.html">
+                observable.js
+              </a>
+            
+              
               <a class="source" href="operators.html">
                 operators.js
               </a>
             
               
-              <a class="source" href="signal.html">
-                signal.js
+              <a class="source" href="promise.html">
+                promise.js
               </a>
             
               
@@ -193,12 +198,12 @@ produce a new value.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-8">&#182;</a>
               </div>
-              <p>The <code>return</code> static method creates a behavior that provides the given
+              <p>The <code>yield</code> static method creates a behavior that provides the given
 constant value.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>Behavior.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Behavior.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
     <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Behavior(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
         <span class="hljs-keyword">return</span> value;
     });
@@ -231,13 +236,16 @@ polled.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-10">&#182;</a>
               </div>
-              <p>The <code>get</code> method of a behavior produces</p>
+              <p>The <code>next</code> method of a behavior returns an iteration that captures both the
+value and index time, and gives a behavior the same shape as an iterator.
+Unlike a stream, the <code>next</code> method does not return a promise for an iteration.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>Behavior.prototype.get = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
+            <div class="content"><div class='highlight'><pre>Behavior.prototype.next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
     <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
-    <span class="hljs-keyword">return</span> handler.callback.call(handler.thisp, index);
+    <span class="hljs-keyword">var</span> value = handler.callback.call(handler.thisp, index);
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Iteration(value, <span class="hljs-literal">false</span>, index);
 };</pre></div></div>
             
         </li>
@@ -248,24 +256,6 @@ polled.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-11">&#182;</a>
-              </div>
-              <p>The <code>next</code> method of a behavior returns an iteration that captures both the
-value and index time, and gives a behavior the same shape as an iterable.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Behavior.prototype.next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
-    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Iteration(<span class="hljs-keyword">this</span>.get(index), <span class="hljs-literal">false</span>, index);
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-12">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-12">&#182;</a>
               </div>
               <p>The static <code>lift</code> method accepts an operator and its context object and
 produces the analogous operator on behaviors.
@@ -283,7 +273,35 @@ behavior that will always yield <code>30</code>.</p>
         <span class="hljs-keyword">var</span> operands = <span class="hljs-built_in">Array</span>.prototype.slice.call(<span class="hljs-built_in">arguments</span>); <span class="hljs-comment">/* TODO unroll */</span>
         <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Behavior(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
             <span class="hljs-keyword">var</span> values = operands.map(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operand)</span> </span>{
-                <span class="hljs-keyword">return</span> operand.get(index);
+                <span class="hljs-keyword">return</span> operand.next(index).value;
+            });
+            <span class="hljs-keyword">if</span> (values.every(Operators.defined)) {
+                <span class="hljs-keyword">return</span> operator.apply(operators, values);
+            }
+        });
+    };
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-12">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+              <p>The <code>tupleLift</code> static method is the same as <code>lift</code> accept that the returned
+behavior operator accepts an array of behaviors instead of variadic behavior
+arguments.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Behavior.tupleLift = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operator, operators)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">operatorBehavior</span><span class="hljs-params">(operands)</span> </span>{
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Behavior(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
+            <span class="hljs-keyword">var</span> values = operands.map(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operand)</span> </span>{
+                <span class="hljs-keyword">return</span> operand.next(index).value;
             });
             <span class="hljs-keyword">if</span> (values.every(Operators.defined)) {
                 <span class="hljs-keyword">return</span> operator.apply(operators, values);
@@ -300,34 +318,6 @@ behavior that will always yield <code>30</code>.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-13">&#182;</a>
-              </div>
-              <p>The <code>tupleLift</code> static method is the same as <code>lift</code> accept that the returned
-behavior operator accepts an array of behaviors instead of variadic behavior
-arguments.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>Behavior.tupleLift = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operator, operators)</span> </span>{
-    <span class="hljs-keyword">return</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">operatorBehavior</span><span class="hljs-params">(operands)</span> </span>{
-        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Behavior(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
-            <span class="hljs-keyword">var</span> values = operands.map(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operand)</span> </span>{
-                <span class="hljs-keyword">return</span> operand.get(index);
-            });
-            <span class="hljs-keyword">if</span> (values.every(Operators.defined)) {
-                <span class="hljs-keyword">return</span> operator.apply(operators, values);
-            }
-        });
-    };
-};</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-14">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-14">&#182;</a>
               </div>
               <p>Using <code>lift</code> and <code>tupleLift</code>, we generate both a method for both the
 behavior constructor and prototype for each of the operators defined in the

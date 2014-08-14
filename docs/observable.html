@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>observable.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+      <ul id="jump_to">
+        <li>
+          <a class="large" href="javascript:void(0);">Jump To &hellip;</a>
+          <a class="small" href="javascript:void(0);">+</a>
+          <div id="jump_wrapper">
+          <div id="jump_page">
+            
+              
+              <a class="source" href="behavior.html">
+                behavior.js
+              </a>
+            
+              
+              <a class="source" href="clock.html">
+                clock.js
+              </a>
+            
+              
+              <a class="source" href="iteration.html">
+                iteration.js
+              </a>
+            
+              
+              <a class="source" href="observable.html">
+                observable.js
+              </a>
+            
+              
+              <a class="source" href="operators.html">
+                operators.js
+              </a>
+            
+              
+              <a class="source" href="promise.html">
+                promise.js
+              </a>
+            
+              
+              <a class="source" href="stream.html">
+                stream.js
+              </a>
+            
+              
+              <a class="source" href="task.html">
+                task.js
+              </a>
+            
+          </div>
+        </li>
+      </ul>
+    
+    <ul class="sections">
+        
+          <li id="title">
+              <div class="annotation">
+                  <h1>observable.js</h1>
+              </div>
+          </li>
+        
+        
+        
+        <li id="section-1">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-1">&#182;</a>
+              </div>
+              
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+              <p>An observable is a <strong>lossy</strong> <strong>push</strong> representation of a value that varies
+at <strong>discrete</strong> and observable moments in time.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-pi">
+"use strict"</span>;
+
+<span class="hljs-keyword">var</span> asap = <span class="hljs-built_in">require</span>(<span class="hljs-string">"asap"</span>);
+<span class="hljs-keyword">var</span> WeakMap = <span class="hljs-built_in">require</span>(<span class="hljs-string">"weak-map"</span>);
+<span class="hljs-built_in">require</span>(<span class="hljs-string">"collections/shim-array"</span>);
+<span class="hljs-keyword">var</span> Observer = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./observer"</span>);
+<span class="hljs-keyword">var</span> Operators = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./operators"</span>);
+<span class="hljs-keyword">var</span> Iteration = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./iteration"</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <h2 id="observable">Observable</h2>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <p>Like promises, observables use the <a href="http://domenic.me/2014/02/13/the-revealing-constructor-pattern/">revealing constructor pattern</a>.</p>
+<p>An observable has a corresponding emitter with a <code>yield</code> method.
+The constructor reveals the <code>yield</code> method as an argument to the setup function.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-built_in">module</span>.exports = Observable;
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Observable</span><span class="hljs-params">(setup)</span> </span>{
+    <span class="hljs-keyword">var</span> signal = Observable.signal();
+    setup(signal.in.yield);
+    <span class="hljs-keyword">return</span> signal.out;
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <p>The <code>signal</code> constructor method is analogous to the <code>Promise.defer()</code> method
+and returns an <code>{in, out}</code> pair consisting of a tangled emitter and
+observable.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.signal = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> SignalHandler(value, index);
+    <span class="hljs-keyword">var</span> emitter = <span class="hljs-keyword">new</span> Emitter();
+    <span class="hljs-keyword">var</span> observable = <span class="hljs-built_in">Object</span>.create(Observable.prototype);
+    handlers.set(emitter, handler);
+    handlers.set(observable, handler);
+    <span class="hljs-keyword">return</span> {<span class="hljs-keyword">in</span>: emitter, out: observable};
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+              <p>The <code>yield</code> constructor method returns an observable that will forever yield
+the given value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Observable(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(_yield)</span> </span>{
+        _yield(value, index);
+    });
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+              <p>The <code>next</code> method provides the portion of the interface necessary to mimick
+an <code>Iterator</code>, and will always produce the last yielded iteration.
+Unlike a stream, the <code>next</code> method does not return a promise for an iteration.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.prototype.next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> handler.Iteration(handler.value, <span class="hljs-literal">false</span>, handler.index);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <p><code>forEach</code> registers an observer for the signal and returns the observer.
+An observer can be cancelled.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.prototype.forEach = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, thisp)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">var</span> observers = handler.observers;
+    <span class="hljs-keyword">var</span> observer = <span class="hljs-keyword">new</span> Observer(callback, thisp, handler);
+    handler.addObserver(observer);
+    <span class="hljs-keyword">return</span> observer;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+              <p><code>map</code> produces a new signal that yields the return value of the given
+callback for each value in from this signal.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.prototype.map = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, thisp)</span> </span>{
+    <span class="hljs-keyword">var</span> signal = Observable.signal();
+    <span class="hljs-keyword">this</span>.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+        signal.in.yield(callback.call(thisp, value, index, <span class="hljs-keyword">this</span>), index);
+    }, <span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> signal.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-10">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+              <p><code>filter</code> produces a signal that yields the values from this signal if they
+pass a test.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.prototype.filter = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, thisp)</span> </span>{
+    <span class="hljs-keyword">var</span> signal = Observable.signal();
+    <span class="hljs-keyword">this</span>.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+        <span class="hljs-keyword">if</span> (callback.call(thisp, value, index, <span class="hljs-keyword">this</span>)) {
+            signal.in.yield(value, index);
+        }
+    }, <span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> signal.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-11">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-11">&#182;</a>
+              </div>
+              <p><code>reduce</code> produces a signal that yields the most recently accumulated value
+by combining each of this signals values with the aggregate of all previous.
+Note that unlike the array reducer, the basis is mandatory.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.prototype.reduce = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(callback, basis, thisp)</span> </span>{
+    <span class="hljs-keyword">var</span> signal = Observable.signal();
+    <span class="hljs-keyword">this</span>.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+        basis = callback.call(thisp, basis, value, index, <span class="hljs-keyword">this</span>);
+        signal.in.yield(basis, index);
+    }, <span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> signal.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-12">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+              <p>The <code>thenYield</code> method ransforms this signal into a pulse.
+Each time this signal produces a value, the returned signal will yield the
+given value.
+The name is intended to parallel the <code>thenReturn</code> and <code>thenThrow</code> methods of
+tasks and promises.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.prototype.thenYield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.map(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+        <span class="hljs-keyword">return</span> value;
+    });
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-13">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-13">&#182;</a>
+              </div>
+              <p>The <code>count</code> method transforms this signal into a pulse counter.
+For each value that this signal produces, the returned signal will produce
+the count of values seen so far.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Observable.prototype.count = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(count, increment)</span> </span>{
+    <span class="hljs-keyword">var</span> signal = Observable.signal();
+    count = count || <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">this</span>.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(_, index)</span> </span>{
+        count = (increment ? increment(count) : count + <span class="hljs-number">1</span>);
+        signal.in.yield(count, index);
+    });
+    <span class="hljs-keyword">return</span> signal.out;
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-14">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-14">&#182;</a>
+              </div>
+              <p>The <code>lift</code> constructor method lifts an operator from value space into signal
+space, such that instead of accepting and returning values, it instead
+accepts and returns signals.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-comment">/* TODO alter this method so that it can accept a mix of behaviors and signals */</span>
+Observable.lift = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operator, thisp)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">signalOperator</span><span class="hljs-params">()</span> </span>{
+        <span class="hljs-keyword">var</span> operandSignals = <span class="hljs-built_in">Array</span>.prototype.slice.call(<span class="hljs-built_in">arguments</span>);
+        <span class="hljs-keyword">var</span> operands = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Array</span>(operandSignals.length);
+        <span class="hljs-keyword">var</span> defined = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Array</span>(operandSignals.length);
+        <span class="hljs-keyword">var</span> pending = operandSignals.length;
+        <span class="hljs-keyword">var</span> signal = Observable.signal();
+        operandSignals.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operandSignal, index)</span> </span>{
+            operandSignal.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operand, time)</span> </span>{
+                <span class="hljs-keyword">if</span> (operand == <span class="hljs-literal">null</span> || operand !== operand) {
+                    <span class="hljs-keyword">if</span> (defined[index]) {
+                        defined[index] = <span class="hljs-literal">false</span>;
+                        pending++;
+                    }
+                    operands[index] = operand;
+                } <span class="hljs-keyword">else</span> {
+                    operands[index] = operand;
+                    <span class="hljs-keyword">if</span> (!defined[index]) {
+                        defined[index] = <span class="hljs-literal">true</span>;
+                        pending--;
+                    }
+                    <span class="hljs-keyword">if</span> (!pending) {
+                        signal.in.yield(operator.apply(thisp, operands), time);
+                    }
+                }
+            });
+        });
+        <span class="hljs-keyword">return</span> signal.out;
+    };
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-15">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-15">&#182;</a>
+              </div>
+              <p>For each operato in the <code>Operators</code> module, we produce both a constructor
+and a prototype method with the corresponding operator or method in signal space.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> name <span class="hljs-keyword">in</span> Operators) {
+    (<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(operator, name)</span> </span>{
+        Observable[name] = Observable.lift(operator, Operators);
+        Observable.prototype[name] = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(that)</span> </span>{
+            <span class="hljs-keyword">return</span> Observable[name](<span class="hljs-keyword">this</span>, that);
+        };
+    })(Operators[name], name);
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-16">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-16">&#182;</a>
+              </div>
+              <h2 id="signalhandler">SignalHandler</h2>
+<p>The observable and generator sides of a signal share private state on a
+signal handler hidden record.
+We use a weak map to track the corresponding handler for each generator and
+observable.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-keyword">var</span> handlers = <span class="hljs-keyword">new</span> WeakMap();
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">SignalHandler</span><span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">this</span>.observers = [];
+    <span class="hljs-keyword">this</span>.value = value;
+    <span class="hljs-keyword">this</span>.index = index;
+    <span class="hljs-keyword">this</span>.active = <span class="hljs-literal">false</span>;
+}
+
+SignalHandler.prototype.Iteration = Iteration;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-17">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-17">&#182;</a>
+              </div>
+              <p>The generator side uses the <code>yield</code> method to set the current value of the
+signal for a given time index and to arrange for an update to all observers.
+Note that we track observers in reverse order to take advantage of a small
+optimization afforded by countdown loops.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>SignalHandler.prototype.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">this</span>.value = value;
+    <span class="hljs-keyword">this</span>.index = index;
+    <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.active) {
+        <span class="hljs-keyword">return</span>;
+    }
+    <span class="hljs-keyword">var</span> observers = <span class="hljs-keyword">this</span>.observers;
+    <span class="hljs-keyword">var</span> length = observers.length;
+    <span class="hljs-keyword">var</span> observerIndex = observers.length;
+    <span class="hljs-keyword">while</span> (observerIndex--) {
+        observers[observerIndex].yield(value, index);
+    }
+};
+
+<span class="hljs-comment">/* TODO yieldEach to mirror yield* syntax of generators, possibly using handler
+ * trickery. */</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-18">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-18">&#182;</a>
+              </div>
+              <p>The observable side of the signal uses <code>addObserver</code> and <code>cancelObserver</code>.</p>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-19">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-19">&#182;</a>
+              </div>
+              <p>The <code>addObserver</code> method will implicitly dispatch an initial value if the signal
+has been initialized and has already captured a meaningful value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>SignalHandler.prototype.addObserver = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(observer)</span> </span>{
+    <span class="hljs-keyword">this</span>.observers.unshift(observer);
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.active &amp;&amp; Operators.defined(<span class="hljs-keyword">this</span>.value)) {
+        observer.yield(<span class="hljs-keyword">this</span>.value, <span class="hljs-keyword">this</span>.index);
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-20">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-20">&#182;</a>
+              </div>
+              <p>If this is the first observer, we may need to activate the signal.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    asap(<span class="hljs-keyword">this</span>);
+};
+
+SignalHandler.prototype.cancelObserver = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(observer)</span> </span>{
+    <span class="hljs-keyword">var</span> index = <span class="hljs-keyword">this</span>.observers.indexOf(observer);
+    <span class="hljs-keyword">if</span> (index &lt; <span class="hljs-number">0</span>) {
+        <span class="hljs-keyword">return</span>;
+    }
+    <span class="hljs-keyword">this</span>.observers.swap(index, <span class="hljs-number">1</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-21">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-21">&#182;</a>
+              </div>
+              <p>If this was the last remaining observer, we may need to deactivate the
+signal.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    asap(<span class="hljs-keyword">this</span>);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-22">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-22">&#182;</a>
+              </div>
+              <p>The add and cancel observer methods both use asap to arrange for a possible
+signal state change, between active and inactive, in a separate event.
+Derrived signal handlers, for example the <code>ClockHandler</code>, may implement
+<code>onstart</code> and <code>onstop</code> event handlers.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>SignalHandler.prototype.call = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.active) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.observers.length) {
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.onstart) {
+                <span class="hljs-keyword">this</span>.onstart();
+            }
+            <span class="hljs-keyword">this</span>.active = <span class="hljs-literal">true</span>;
+            <span class="hljs-keyword">if</span> (Operators.defined(<span class="hljs-keyword">this</span>.value)) {
+                <span class="hljs-keyword">this</span>.yield(<span class="hljs-keyword">this</span>.value, <span class="hljs-keyword">this</span>.index);
+            }
+        }
+    } <span class="hljs-keyword">else</span> {
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.observers.length) {
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.onstop) {
+                <span class="hljs-keyword">this</span>.onstop();
+            }
+            <span class="hljs-keyword">this</span>.active = <span class="hljs-literal">false</span>;
+        }
+    }
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-23">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-23">&#182;</a>
+              </div>
+              <h2 id="emitter">Emitter</h2>
+<p>A producer should receive a reference to the generator side of a signal.
+It hosts the methods needed to change the value captured by a signal and
+propagate change notifications.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Emitter</span><span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">this</span>.yield = <span class="hljs-keyword">this</span>.yield.bind(<span class="hljs-keyword">this</span>);
+}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-24">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-24">&#182;</a>
+              </div>
+              <p>The <code>yield</code> method updates the value for a given time index and radiates a
+change notification to any registered observers.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Emitter.prototype.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value, index)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    handler.yield(value, index);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-25">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-25">&#182;</a>
+              </div>
+              <p>The <code>inc</code> method assumes that the signal captures an integer and increments
+that value by one.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Emitter.prototype.inc = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">this</span>.yield(handler.value + <span class="hljs-number">1</span>, index);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-26">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-26">&#182;</a>
+              </div>
+              <p>The <code>dec</code> method assumes that the signal captures an integer and decrements
+that value by one.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>Emitter.prototype.dec = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(index)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">this</span>.yield(handler.value - <span class="hljs-number">1</span>, index);
+};</pre></div></div>
+            
+        </li>
+        
+    </ul>
+  </div>
+</body>
+</html>
