@@ -16,8 +16,9 @@ var Signal = require("./signal");
 // the current time in miliseconds.
 
 module.exports = Clock;
-function Clock(period, offset, now) {
-    var handler = new this.Handler(period, offset, now);
+function Clock(options) {
+    options = options || {};
+    var handler = new this.Handler(options.period, options.offset, options.now);
     Signal.prototype.Observable.call(this, handler);
 }
 

@@ -20,6 +20,6 @@
   },
   "scripts": {
     "test": "jasminum test",
-    "docco": "docco stream.js task.js behavior.js observable.js iteration.js operators.js clock.js"
+    "docco": "docco promise.js task.js stream.js behavior.js observable.js iteration.js operators.js clock.js"
   }
 }

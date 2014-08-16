@@ -35,6 +35,9 @@ However, this description fails to capture all of the varigated concepts of
 reactivity.
 Rather, Rx conflates all reactive primitives into a single Observable type that
 can perform any role.
+Just as an array is an exemplar of an entire taxonomy of collections, promises,
+streams, and observables are merely representatives of their class of reactive
+primitives.
 As the common paraphrase of Einstein goes, everything should be made as simple
 as possible, but no simpler.
 
@@ -75,8 +78,8 @@ Collectively, an asynchronous value is a **deferred**.
 If a promise is the temporal analogue of a value, a **stream** is the temporal
 analogue of an array.
 The producer side of a stream is a writer and the consumer side is a reader.
-A reader is an **asynchronous iterator** and a writer is an **asynchronous
-generator**.
+A **reader** is an asynchronous iterator and a **writer** is an asynchronous
+generator.
 
 
 Interface  |               |          |          |
@@ -93,10 +96,6 @@ Resolver   | Setter        | Singular | Temporal |
 Reader     | Getter        | Plural   | Temporal |
 Writer     | Setter        | Plural   | Temporal |
 Stream     | Value         | Plural   | Temporal |
-
-
-Just as an array is an exemplar of an entire taxonomy of collections, promises
-and streams are merely representatives of their class of reactive primitives.
 
 
 ### Singular and temporal
@@ -158,7 +157,7 @@ A **stream** has many of the same constraints as an array.
 Imagine a plane with space and time.
 If you rotate an array from the space axis to the time axis, it would become a
 stream.
-The order of the contained values is important, and every value is significant.
+The order is important, and every value is significant.
 
 Consumers and producers are unlikely to process values at the same rate.
 If the consumer is faster than the producer, it must idle between receiving
@@ -181,9 +180,21 @@ flows both ways.
 Data flows forward, acknowledgements flow backward, and either the consumer or
 producer can terminate the flow.
 
-See the accompanying sketch of a [promise buffer][] implementation.
+Although a stream is unicast, it is certainly possible to branch a stream into
+multiple streams in a variety of ways.
+A fork in a stream is an operator that ensures that every value gets sent to
+each of an array of consumers.
+The slowest of the forks determines the pressure, so the pressure of a fork can
+only be higher than that of a single consumer.
+The simpler strategy of providing a stream to multiple consumers produces a
+“round robin” load balancing effect, where each consumer receives an exclusive,
+possibly random, portion of the stream.
+The pressure of a shared stream can only be lower than that of a single
+consumer.
 
-[promise buffer]: http://kriskowal.github.io/gtor/docs/promise-buffer.html
+See the accompanying sketch of a [stream][] implementation.
+
+[stream]: http://kriskowal.github.io/gtor/docs/stream.html
 
 In contrast, **publishers** and **subscribers** are **broadcast**.
 Information flows only one direction, from the publishers to the subscribers.
@@ -203,7 +214,10 @@ possible, to respond every moment it changes.
 Time series data comes in two varieties: **discrete** and **continuous**.
 Discrete values should be **pushed** whereas continuous values should be
 **pulled** or **polled**.
-If a homophone is a disaster, what are synonymous homophones?
+(If a homophone is a disaster, what are synonymous homophones?)
+
+The current time or temperature are examples of **continous behaviors**.
+Animation frames and morse code are an examples of **discrete signals**.
 
 
 ## Primitives
@@ -220,12 +234,15 @@ multiple values.
 Iterators are not new to JavaScript, but there is a new standard forming at time
 of writing.
 
-Iterators implement a `next()` method that must either return an object with the
-next or final value in the sequence.
+Iterators implement a `next()` method that returns an object that may have a
+`value` property, and may have a `done` property.
 Although the standard does not give this object a name, we will call it an
 **iteration**.
-An iteration has a `value` property and must have a `done` property if the
-sequence has ended.
+If the iterator has produced the entirety of a sequence, the `done` property of
+the iteration will be `true`.
+Generator functions return iterators that expand on this basic definition.
+The `value` of a non-final iteration corresponds to a `yield` expression and the
+`value` of a `done` iteration corresponds to a `return` expression.
 
 Iterators are an interface with many implementations.
 The canonical iterator yields the values from an array.
@@ -398,8 +415,8 @@ expect(iterator.next().value).toBe("Goodbye");
 expect(iterator.next().value).toBe(undefined);
 ```
 
-We must prime the generator because it does not begin with a `yield`.  We
-advance, the state machine to the first `yield` and allow it to produce the
+We must prime the generator because it does not begin with a `yield`.
+We advance the state machine to the first `yield` and allow it to produce the
 initial, undefined message.
 We then populate the message variable with a value, receiving its former
 undefined content again.
@@ -433,11 +450,10 @@ conclude that it cannot produce another value.
 ### Generators
 
 There is no proposal for a standard generator, but for the sake of completeness,
-if an array iterator consumes an array, an array generator would lazilly produce
+if an array iterator consumes an array, an array generator would lazily produce
 one.
-An array generator object would implement `yield`, `return`, and `throw` as
-methods with behavior analogous to the same keywords within a generator
-function.
+An array generator object would implement `yield` as a methods with behavior
+analogous to the same keyword within a generator function.
 The `yield` method would add a value to the array.
 
 ```js
@@ -449,12 +465,16 @@ generator.yield(30);
 expect(array).toEqual([10, 20, 30]);
 ```
 
-Since ECMAScript 5, at Doug Crockford’s behest, JavaScript allows keywords to be
-used for property names.
 
-And just as array iterators are just one implementation of the iterator
-interface, the generator interface could have many interfacets.
-Generator objects foreshadow the existence of stream writers.
+Since ECMAScript 5, at Doug Crockford’s behest, JavaScript allows keywords to be
+used for property names, making this parallel between keywords and methods
+possible.
+A generator might also implement `return` and `throw` methods, but a meaningful
+implementation for an array generator is a stretch of the imagination.
+Although an array generator is of dubious utility, it foreshadows the interface
+of asynchronous generators, for which meaningful implementations of `return` and
+`throw` methods are easier to obtain, and go on to inform a sensible design for
+asynchronous generator functions.
 
 
 ### Asynchronous Values
@@ -466,6 +486,9 @@ Collectively the promise and resolver are a deferred value.
 The salient method of a promise is `then`, which creates a new promise for the
 result of a function that will eventually observe the value of the promise.
 If a promise were plural, the `then` method might be called `map`.
+And if you care to beg an esoteric distinction, it might be called `flatMap`,
+since "unboxing" a promise for a value is the temporal equivalent of spatially
+taking a single value out of an array.
 
 ```js
 var promiseForThirty = promiseForTen.then(function (ten) {
@@ -491,14 +514,10 @@ promise.then(onreturn, onthrow);
 promise.catch(onthrow);
 ```
 
-In keeping with the design of `forEach` and `map` in JavaScript, the `then` and
-`catch` methods might also take a `thisp`, an object to use as `this` in the
-observer functions.
-
-```js
-array.forEach(onyield, thisp);
-promise.then(onreturn, onthrow, thisp);
-```
+At this point, the design described here begins to differ from the standard
+`Promise` proposed for ECMAScript 6, arriving in browsers at time of writing.
+The purpose of these differences is not to propose an alternative syntax, but to
+reinforce the relationship between a promise and its conceptual neighbors.
 
 A resolver is the singular analogue of a generator.
 Rather than yielding, returning, and throwing errors, the resolver can only
@@ -508,6 +527,18 @@ return or throw.
 resolver.return(10);
 resolver.throw(new Error("Sorry, please return during business hours."));
 ```
+
+With the standard promise, a free `resolve` function is sufficient and ergonomic
+for expressing both of these methods.
+`resolver.return(promise)` is equivalent to `resolve(promise)`.
+`resolver.return(10)` is equivalent to `resolve(10)` or
+`resolve(Promise.resolve(10))`since non-promise values are automatically boxed
+in an already-fulfilled promise.
+`resolver.throw(error)` is equivalent to `resolve(Promise.reject(error))`.
+In all positions, `resolve` is the temporal analogue of `return` and `reject` is
+the temporal analogue of `throw`.
+Since promises as we know them today bridged the migration gap from ECMAScript 3
+to ECMAScript 6, it was also necessary to use non-keywords for method names. 
 
 A deferred value can be deferred further by resolving it with another promise.
 This can occur either expressly through the resolver, or implicitly by returning
@@ -530,13 +561,50 @@ var authenticated = getUsernameFromConsole()
 
 The `then` method internally creates a new deferred, returns the promise, and
 later forwards the return value of the observer to the resolver.
+This is a sketch of a `then` method that illustrates this adapter.
+Note that we create a deferred, use the resolver, and return the promise.
+The adapter is responsible for catching errors and giving the consumer an
+opportunity do further work or to recover.
 
 ```js
-var userPromise = getUserFromDatabase(username);
-var userDeferred = new Deferred();
-var resolver = userDeferred.resolver;
-resolver.return(userPromise);
-return userDeferred.promise;
+Promise.prototype.then = function Promise_then(onreturn, onthrow) {
+    var self = this;
+    var deferred = Promise.defer();
+    var resolver = deferred.resolver;
+    this.done(function (value) {
+        if (onreturn) {
+            try {
+                resolver.return(onreturn(value));
+            } catch (error) {
+                resolver.throw(error);
+            }
+        } else {
+            resolver.return(value);
+        }
+    }, function (error) {
+        if (onthrow) {
+            try {
+                resolver.return(onthrow(value));
+            } catch (error) {
+                resolver.throw(error);
+            }
+        } else {
+            resolver.throw(error);
+        }
+    });
+    return deferred.promise;
+```
+
+The standard `Promise` does not reveal `Promise.defer()`.
+Instead, it is hidden by `then` and by the `Promise` constructor, which elects
+to hide the deferred object and the resolver object, instead "revealing" the
+`resolve` and `reject` methods as free arguments to a setup function, furthering
+the need to give these functions names that are not keywords.
+
+```js
+var promise = new Promise(function (resolve, reject) {
+    // ...
+});
 ```
 
 With a promise, information flows only from the first call to a resolver method
@@ -926,10 +994,10 @@ Of course synchronous functions are implicitly completed when they return,
 but asynchronous functions are done when the asynchronous value they return
 settles.
 
-Asynchronous `forEach` would return a task.
-Since streams are **unicast**, it stands to reason that the asynchonous result
-of `forEach` on a stream would be able to propagate a cancellation upstream,
-stopping the flow of data from the producer side.
+Since streams are **unicast**, asynchronous `forEach` would return a task.
+It stands to reason that the asynchonous result of `forEach` on a stream would
+be able to propagate a cancellation upstream, stopping the flow of data from the
+producer side.
 Of course, the task can be easily forked or coerced into a promise if it needs
 to be shared freely among multiple consumers.
 
@@ -1093,17 +1161,17 @@ promiseGenerator.yield("alpha", 0)
 });
 ```
 
-This example will fetch quotes from the works of Shakespeare, retrieve quotes
-from each work, and push those quotes out to the consumer.
+The following example will fetch quotes from the works of Shakespeare, retrieve
+quotes from each work, and push those quotes out to the consumer.
 Note that the `yield` expression returns a promise for the value to flush, so
 awaiting on that promise allows the generator to pause until the consumer
 catches up.
 
 ```js
 async function *shakespeare(titles) {
-    for (title of titles) {
+    for (let title of titles) {
         var quotes = await getQuotes(title);
-        for (quote of quotes) {
+        for (let quote of quotes) {
             await yield quote;
         }
     }
@@ -1191,7 +1259,7 @@ Behavior           | Value         | Poll |
 
 -   TODO make sure this is a summary of the topics in the end:
 
-Yet even variables have variations like probes, gauges, counters,
+Yet even behaviors have variations like probes, gauges, counters,
 flow gauges, accumulators, flushable accumulators, and rotating counters.
 
 
@@ -1199,7 +1267,7 @@ flow gauges, accumulators, flushable accumulators, and rotating counters.
 
 A signal represents a value that changes over time.
 The signal is asynchronous and plural, like a stream.
-Unlike a stream, a signal can have plural producers and consumers.
+Unlike a stream, a signal can have multiple producers and consumers.
 
 A signal has a getter side and a setter side.
 The asynchronous getter for a signal is an observable instead of a reader.
@@ -1238,8 +1306,8 @@ A noteworth example of an external observable is a clock.
 A clock emits a signal with the current time at a regular period and offset.
 
 ```js
-var tick = new Clock(1000);
-var tock = new Clock(1000, 500);
+var tick = new Clock({period: 1000});
+var tock = new Clock({period: 1000, offset: 500});
 tick.forEach(function (time) {
     console.log("tick", time);
 })
@@ -1263,17 +1331,16 @@ daemon.signals.yield("SIGHUP");
 ```
 
 
-### Variables or Behaviors
+### Behaviors
 
-In the simplest case, a variable is merely a mutable property of a scope.
-However, a `Variable` with a captial `V` is an object that supports the
-synchronous iterator and generator interfaces.
-This is a sketch of a variable.
+A behavior is a time series value that may have a different value for every
+moment in time.
+This is a sketch of a behavior.
 
 ```js
 var value = null;
 var index = null;
-var variable = {
+var behavior = {
     iterator: {
         next: function () {
             return {value: value, index: index, done: false};
@@ -1288,21 +1355,21 @@ var variable = {
 };
 ```
 
-The significance of a variable is that it can capture a signal, transforming a
+The significance of a behavior is that it can capture a signal, transforming a
 push interface into a pull interface.
 Whatever the signal last emitted is the value that will be subsequently polled
 or forgotten.
-The variable allows the sample rate of a producer to differ from the sample rate
+The behavior allows the sample rate of a producer to differ from the sample rate
 of a consumer.
-It is also straight-forward to convert a variable back to a signal at an
+It is also straight-forward to convert a behavior back to a signal at an
 arbitrary interval.
 
 ```js
-input.forEach(variable.yield, variable);
+input.forEach(behavior.yield, behavior);
 var output = new Signal();
 var clock = new Clock(100); // 10Hz
 clock.forEach(function () {
-    var iteration = variable.next();
+    var iteration = behavior.next();
     output.generator.yield(iteration.value, iteration.index);
 });
 return output.iterator;
@@ -1312,17 +1379,17 @@ return output.iterator;
 ### Probes
 
 A probe is a synchronous plural getter.
-On one hand, probes are a special case of an iterator, but like a variable,
+On one hand, probes are a special case of an iterator, but like a behavior,
 represent a time series of an underlying value.
 The probe constructor lifts a simple callback.
 The callback must return the next value in the series.
 
-Consider this sketch of the `map` method of a `Variable`.
-The map method of a variable produces a probe that will transform the current
-value of the underlying variable on demand.
+Consider this sketch of the `map` method of a `Behavior`.
+The map method of a behavior produces a probe that will transform the current
+value of the underlying behavior on demand.
 
 ```js
-Variable.prototype.map = function (callback, thisp) {
+Behavior.prototype.map = function (callback, thisp) {
     return new Probe(function (index) {
         var iteration = this.next(null, index);
         return callback.call(thisp, iteration.value, iteration.index, this);
@@ -1333,16 +1400,16 @@ Variable.prototype.map = function (callback, thisp) {
 Suppose you have a promise.
 Promises may provide a signal for their estimated time to completion.
 Whenever the ETC changes, you receive the new time.
-The user interface, however, requires a progress variable it can poll for each
+The user interface, however, requires a progress behavior it can poll for each
 animation frame.
 We can channel the estimated time completion signal into a last-known estimated
-time to completion variable, and then use a probe to transform the ETC into a
+time to completion behavior, and then use a probe to transform the ETC into a
 progress estimate.
 
 ```js
 var start = Date.now();
 return promise.observeEstimate()
-.variable()
+.behavior()
 .map(function (estimate) {
     var now = Date.now();
     return (now - start) / (estimate - start);
@@ -1351,28 +1418,28 @@ return promise.observeEstimate()
 
 -   TODO explain operators in a lift
 
-Consider lifting an operator to a variable operator.
-`Variable.lift(add)` will take the `add(x:number, y:number): number` operator
-and return a `add(x:Variable&lt;number&gt;, y:Variable&lt;number&gt;):Variable&lt;number&gt;`
-variable operator.
+Consider lifting an operator to a behavior operator.
+`Behavior.lift(add)` will take the `add(x:number, y:number): number` operator
+and return a ``add(x:Behavior<number>, y:Behavior<number>):Behavior<number>;``
+behavior operator.
 
 ```js
-Variable.lift = function (operator, thisp) {
-    return function variableOperator() {
-        var operandVariables = Array.prototype.slice.call(arguments);
+Behavior.lift = function (operator, thisp) {
+    return function behaviorOperator() {
+        var operandBehaviors = Array.prototype.slice.call(arguments);
         return new Probe(function (time) {
-            var operands = operandVariables.map(function (operandVariable) {
-                return operandVariable.next().value;
+            var operands = operandBehaviors.map(function (operandBehavior) {
+                return operandBehavior.next().value;
             });
             return new Iteration(operator.apply(thisp, operands), time);
         });
     };
 };
 
-Variable.add = Variable.lift(Operators.add);
+Behavior.add = Behavior.lift(Operators.add);
 
-Variable.prototype.add = function (that) {
-    return Variable.add(this, that);
+Behavior.prototype.add = function (that) {
+    return Behavior.add(this, that);
 };
 ```
 
@@ -1381,7 +1448,7 @@ Variable.prototype.add = function (that) {
 
 Suppose that your kernel tracks the total number of transmitted bytes by every
 interface in a four byte unsigned integer, but owing to the limited size of the
-variable and the amount of traffic that this network sees, the integer
+behavior and the amount of traffic that this network sees, the integer
 periodically overflows.
 The measurement is not useful for tracking the total number of bytes sent
 because the integer is always relative to the last time it overflowed, but as
@@ -1393,7 +1460,7 @@ Each time you receive this signal, you probe the kernel for its transmitted
 bytes figure.
 
 ```js
-var clock = new Clock(1000);
+var clock = new Clock({period: 1000});
 var tx = clock.map(function (time) {
     return getTrasmittedBytes("eth0");
 })
@@ -1451,7 +1518,7 @@ var chunkSignal = new Signal();
 var contentPromise = stream.tap(chunkSignal.generator).read();
 var estimateSignal = contentPromise.observeEstimate();
 var start = Date.now();
-var progressVariable = estimateSignal.variable().map(function (estimate) {
+var progressBehavior = estimateSignal.behavior().map(function (estimate) {
     return (now - start) / (estimate - start);
 });
 var chunkVelocitySignal = chunkSignal.map(function (chunk) {
@@ -1483,9 +1550,9 @@ var chunkVelocitySignal = chunkSignal.map(function (chunk) {
 
 -   TODO ellaborate
 
-### Signals, Variables, and Streams
+### Signals, Behaviors, and Streams
 
-Variables and signals can be channeled into a writable stream.
+Behaviors and signals can be channeled into a writable stream.
 Particularly if you do not want to miss any values produced by a signal, you can
 send the signal output directly into a buffer’s input.
 
@@ -1527,16 +1594,16 @@ Recall that we can promote any iterable to a readable stream.
 We earlier implied that this would be useful for performing asynchronous work on
 each value from an array or collection, maybe even the output of an indefinite
 iterator or generator.
-A variable iterator is also a suitable input for a reader
+A behavior iterator is also a suitable input for a reader
 
 ```js
-return new Reader(variable.iterator).forEach(process);
+return new Reader(behavior.iterator).forEach(process);
 ```
 
-However, the variable produces an infinite series of values and depending on how
-frequently the variable gets updated and how frequently a process may be
+However, the behavior produces an infinite series of values and depending on how
+frequently the behavior gets updated and how frequently a process may be
 completed, the processor may receive many duplicate values.
-To avoid duplicates, it may be better to channel the variable into a high
+To avoid duplicates, it may be better to channel the behavior into a high
 frequency signal that filters duplicates.
 Consider a `uniq` method on a signal.
 
@@ -1572,7 +1639,7 @@ The benefit of converting a stream to a signal is that with a signal, multiple
 consumers can listen to every value that comes out of the stream.
 If multiple consumers draw data from a readable stream using `forEach` directly,
 each value produced by the stream will only be seen by one of the consumers.
-Signals and variables are broadcast.
+Signals and behaviors are broadcast.
 Streams are unicast.
 
 
@@ -1622,7 +1689,7 @@ Values that lack an inherent resolution are *continuous*.
 It becomes the responsibility of the consumer to determine when to sample,
 **pull** or **poll** the value.
 
-For the purposes of a smooth animation of a continuous variable, the frame rate
+For the purposes of a smooth animation of a continuous behavior, the frame rate
 is a sensible polling frequency.
 We can infer a continous progress time series from the last known estimated time
 of completion.
