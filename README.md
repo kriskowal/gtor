@@ -1205,8 +1205,9 @@ reader.reduce(function (length, quote) {
 });
 ```
 
-It may be valuable for a yield to implicitly await on both the value it takes in
-and the promise it evaluates to.
+It is useful for `await` and `yield` to be completely orthogonal because there
+are cases where one will want to yield but ignore pressure from the consumer,
+forcing the iteration to buffer.
 
 
 ### Observables
