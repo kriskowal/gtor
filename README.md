@@ -423,10 +423,21 @@ This foreshadows the ability of stream readers to push back on stream writers.
 Additionally, the iterator gains a `throw` method that allows the iterator to
 terminate the generator by causing the `yield` expression to raise the given
 error.
-The error will pass through any try- catch or finally blocks in the generators
-stack, and unless handled, through your own stack.
-As such, like `next`, the `throw` method may either return an iterator or throw
-an error.
+The error will unravel the stack inside the generator.
+If the error unravels a try-catch-finally block, the catch block may handle the
+error, leaving the generator in a resumable state if the returned iteration is
+not `done`.
+If the error unravels all the way out of the generator, it will pass into the
+stack of the `throw` caller.
+
+The iterator also gains a `return` method that causes the generator to resume as
+if from a `return` statement, regardless of whether it actually paused at a
+`yield` expression.
+Like a thrown error, this unravels the stack, executing finally blocks, but not
+catch blocks.
+
+As such, like `next`, the `throw` and `return` methods may either return an
+iteration, done or not, or throw an error.
 This foreshadows the ability of a stream reader to prematurely stop a stream
 writer.
 
