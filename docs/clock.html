@@ -78,7 +78,8 @@
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-1">&#182;</a>
               </div>
-              
+              <p>TODO rebase on observable</p>
+
             </div>
             
         </li>
@@ -121,8 +122,9 @@ the current time in miliseconds.</p>
             
             <div class="content"><div class='highlight'><pre>
 <span class="hljs-built_in">module</span>.exports = Clock;
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Clock</span><span class="hljs-params">(period, offset, now)</span> </span>{
-    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Handler(period, offset, now);
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Clock</span><span class="hljs-params">(options)</span> </span>{
+    options = options || {};
+    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Handler(options.period, options.offset, options.now);
     Signal.prototype.Observable.call(<span class="hljs-keyword">this</span>, handler);
 }</pre></div></div>
             
