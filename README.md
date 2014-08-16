@@ -916,6 +916,16 @@ var buffer = {
 };
 ```
 
+This sketch uses the vernacular of iterators and generators, but each of these
+has equivalent nomenclature in the world of streams.
+
+-   `in.yield` means “write”.
+-   `in.return` means “close”.
+-   `in.throw` means “terminate prematurely with an error”.
+-   `out.next` means “read”.
+-   `out.throw` means “abort or cancel with an error”.
+-   `out.return` means “abort or cancel prematurely but without an error”.
+
 So a buffer fits in the realm of reactive interfaces.
 A buffer has an asynchronous iterator, which serves as the getter side.
 It also has an asynchronous generator, which serves as the setter dual.
