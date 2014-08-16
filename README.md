@@ -877,13 +877,19 @@ The following is a sketch to that effect.
 var outbound = new PromiseQueue();
 var inbound = new PromiseQueue();
 var buffer = {
-    iterator: {
-        next: function (value, index) {
+    out: {
+        next: function (value) {
             outbound.put({
                 value: value,
-                index: index,
                 done: false
             });
+            return inbound.get();
+        },
+        return: function (value) {
+            outbound.put({
+                value: value,
+                done: true
+            })
             return inbound.get();
         },
         throw: function (error) {
@@ -891,11 +897,10 @@ var buffer = {
             return inbound.get();
         }
     },
-    generator: {
-        yield: function (value, index) {
+    in: {
+        yield: function (value) {
             inbound.put({
                 value: value,
-                index: index,
                 done: false
             })
             return outbound.get();
@@ -1070,7 +1075,7 @@ A promise iterator be easily backed by a promise for a remote object.
 function RemotePromiseIterator(promise) {
     this.remoteIteratorPromise = promise.invoke("iterate");
 }
-RemotePromiseIterator.prototype.next = function (value, index) {
+RemotePromiseIterator.prototype.next = function (value) {
     return this.remoteIteratorPromise.invoke("next");
 };
 
@@ -1091,7 +1096,7 @@ streamed on demand over any message channel.
 A promise generator is analogous in all ways to a plain generator.
 Promise generators implement `yield`, `return`, and `throw`.
 The return and throw methods both terminate the stream.
-Yield accepts a value and an index.
+Yield accepts a value.
 They all return promises for an acknowledgement iteration from the consumer.
 Waiting for this promise to settle causes the producer to idle long enough for
 the consumer to process the data.
@@ -1104,13 +1109,13 @@ consumer to flush.
 
 ```js
 var buffer = new Buffer(1024);
-function fibStream(a, b, index) {
+function fibStream(a, b) {
     return buffer.in.yield(a)
     .then(function () {
-        return fibStream(b, a + b, index + 1);
+        return fibStream(b, a + b);
     });
 }
-fibStream(1, 1, 0).done();
+fibStream(1, 1).done();
 return buffer.out;
 ```
 
@@ -1149,15 +1154,15 @@ for the acknowledgement from the iterator.
 ```js
 promiseIterator.next()
 .then(function (iteration) {
-    console.log(iteration.value, "at", iteration.index);
+    console.log(iteration.value);
     if (iteration.done) {
         console.log("fin");
     }
 });
 
-promiseGenerator.yield("alpha", 0)
+promiseGenerator.yield("alpha")
 .then(function (iteration) {
-    console.log("iterator has consumed alpha at index 0");
+    console.log("iterator has consumed alpha");
 });
 ```
 
@@ -1339,17 +1344,15 @@ This is a sketch of a behavior.
 
 ```js
 var value = null;
-var index = null;
 var behavior = {
-    iterator: {
+    in: {
         next: function () {
-            return {value: value, index: index, done: false};
+            return {value: value, done: false};
         }
     },
-    generator: {
-        yield: function (_value, _index) {
+    out: {
+        yield: function (_value) {
             value = _value;
-            index = _index;
         }
     }
 };
@@ -1370,7 +1373,7 @@ var output = new Signal();
 var clock = new Clock(100); // 10Hz
 clock.forEach(function () {
     var iteration = behavior.next();
-    output.generator.yield(iteration.value, iteration.index);
+    output.generator.yield(iteration.value);
 });
 return output.iterator;
 ```
@@ -1392,7 +1395,7 @@ value of the underlying behavior on demand.
 Behavior.prototype.map = function (callback, thisp) {
     return new Probe(function (index) {
         var iteration = this.next(null, index);
-        return callback.call(thisp, iteration.value, iteration.index, this);
+        return callback.call(thisp, iteration.value, index, this);
     }, this);
 };
 ```
@@ -1574,8 +1577,8 @@ SignalIterator.prototype.monitor = function () {
     var buffer = new Buffer();
     var signal = new Signal();
     var length = 0;
-    this.forEach(function (value, index) {
-        buffer.generator.yield(value, index);
+    this.forEach(function (value) {
+        buffer.generator.yield(value);
         signal.generator.yield(++length);
     });
     return {
