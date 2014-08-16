@@ -192,10 +192,6 @@ possibly random, portion of the stream.
 The pressure of a shared stream can only be lower than that of a single
 consumer.
 
-See the accompanying sketch of a [stream][] implementation.
-
-[stream]: http://kriskowal.github.io/gtor/docs/stream.html
-
 In contrast, **publishers** and **subscribers** are **broadcast**.
 Information flows only one direction, from the publishers to the subscribers.
 Also, there is no guarantee of continuity.
@@ -940,13 +936,31 @@ Promise Generator | Setter  | Plural   | Temporal     |
 A buffer has a reader and writer, but there are implementations of reader and
 writer that interface with the outside world, mostly files and sockets.
 
-Note that `next` and `yield` are duals.
-I previously proposed an extension to iterators that would allow an iteration to
-carry the `index` for each `value` from an array or similar source.
-I also proposed that a generator object would implement `yield(value, index)`
-such that it could produce such indexes with an optional second argument.
-Since `next` is the dual of `yield`, it would be able to send an `index` back to
-the producer.
+In the particular case of an object stream, if we treat `yield` and `next` as
+synonyms, the input and output implementations are perfectly symmetric.
+This allows a single constructor to serve as both reader and writer.
+Also, standard promises use the [Revealing Constructor] pattern, exposing the
+constructor for the getter side.
+The standard hides the `Promise.defer()` constructor method behind the scenes,
+only exposing the `resolver` as arguments to a setup function, and never
+revealing the `{promise, resolver}` deferred object at all.
+Similarly, we can hide the promise buffer constructor and reveal the input side
+of a stream only as arguments to the output stream constructor.
+
+```js
+var reader = new Stream(function (write, close, abort) {
+    // ...
+});
+```
+
+The analogous method to `Promise.defer()` might be `Stream.buffer()`, which
+would return an `{in, out}` pair of entangled streams.
+
+[Revealing Constructor]: http://domenic.me/2014/02/13/the-revealing-constructor-pattern/
+
+See the accompanying sketch of a [stream][] implementation.
+
+[stream]: http://kriskowal.github.io/gtor/docs/stream.html
 
 
 ### Promise Iterators
