@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>byte-stream.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+      <ul id="jump_to">
+        <li>
+          <a class="large" href="javascript:void(0);">Jump To &hellip;</a>
+          <a class="small" href="javascript:void(0);">+</a>
+          <div id="jump_wrapper">
+          <div id="jump_page">
+            
+              
+              <a class="source" href="behavior.html">
+                behavior.js
+              </a>
+            
+              
+              <a class="source" href="byte-stream.html">
+                byte-stream.js
+              </a>
+            
+              
+              <a class="source" href="clock.html">
+                clock.js
+              </a>
+            
+              
+              <a class="source" href="iteration.html">
+                iteration.js
+              </a>
+            
+              
+              <a class="source" href="observable.html">
+                observable.js
+              </a>
+            
+              
+              <a class="source" href="operators.html">
+                operators.js
+              </a>
+            
+              
+              <a class="source" href="promise.html">
+                promise.js
+              </a>
+            
+              
+              <a class="source" href="stream.html">
+                stream.js
+              </a>
+            
+              
+              <a class="source" href="task.html">
+                task.js
+              </a>
+            
+          </div>
+        </li>
+      </ul>
+    
+    <ul class="sections">
+        
+          <li id="title">
+              <div class="annotation">
+                  <h1>byte-stream.js</h1>
+              </div>
+          </li>
+        
+        
+        
+        <li id="section-1">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-1">&#182;</a>
+              </div>
+              
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-keyword">var</span> WeakMap = <span class="hljs-built_in">require</span>(<span class="hljs-string">"weak-map"</span>);
+<span class="hljs-keyword">var</span> Promise = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./promise"</span>);
+<span class="hljs-keyword">var</span> Iteration = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./iteration"</span>);
+<span class="hljs-keyword">var</span> Stream = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./stream"</span>);
+
+<span class="hljs-keyword">var</span> handlers = <span class="hljs-keyword">new</span> WeakMap();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+              <h2 id="bytestream">ByteStream</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-built_in">module</span>.exports = ByteStream;
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ByteStream</span><span class="hljs-params">(setup, length)</span> </span>{
+    <span class="hljs-keyword">var</span> buffer = <span class="hljs-keyword">this</span>.constructor.buffer(length);
+    handlers.set(<span class="hljs-keyword">this</span>, handlers.get(buffer.out));
+    ByteStream_bind(<span class="hljs-keyword">this</span>);
+    setup(buffer.in.yield, buffer.in.return, buffer.in.throw);
+}
+
+ByteStream.buffer = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(length)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = <span class="hljs-keyword">new</span> ByteHandler(length);
+    <span class="hljs-keyword">var</span> input = <span class="hljs-built_in">Object</span>.create(ByteSource.prototype);
+    ByteSource_bind(input);
+    handlers.set(input, handler);
+    <span class="hljs-keyword">var</span> output = <span class="hljs-built_in">Object</span>.create(ByteStream.prototype);
+    ByteStream_bind(output);
+    handlers.set(output, handler);
+    <span class="hljs-keyword">return</span> {<span class="hljs-keyword">in</span>: input, out: output};
+};
+
+ByteStream_bind = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(stream)</span> </span>{
+    stream.next = stream.next.bind(stream);
+}
+
+ByteStream.of = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(buffer, length)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(_yield, _return, _throw)</span> </span>{
+        _yield(buffer).then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(iteration)</span> </span>{
+            <span class="hljs-keyword">return</span> _return(iteration.value);
+        }, _throw).done();
+    }, length);
+};
+
+ByteStream.prototype = <span class="hljs-built_in">Object</span>.create(Stream.prototype);
+ByteStream.prototype.constructor = ByteStream;
+
+ByteStream.prototype.next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.next();
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <h2 id="bytesource">ByteSource</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ByteSource</span><span class="hljs-params">()</span> </span>{
+}
+
+ByteSource_bind = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(source)</span> </span>{
+    source.yield = source.yield.bind(source);
+    source.return = source.return.bind(source);
+    source.throw = source.throw.bind(source);
+}
+
+ByteSource.prototype.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(chunk)</span> </span>{
+    <span class="hljs-keyword">if</span> (!(chunk <span class="hljs-keyword">instanceof</span> Buffer)) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Can't write non-buffer to stream"</span>);
+    }
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.yield(<span class="hljs-keyword">new</span> Window(chunk));
+};
+
+ByteSource.prototype.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.return(value);
+};
+
+ByteSource.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">var</span> handler = handlers.get(<span class="hljs-keyword">this</span>);
+    <span class="hljs-keyword">return</span> handler.throw(error);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <h2 id="bytehandler">ByteHandler</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ByteHandler</span><span class="hljs-params">(length)</span> </span>{
+    length = length || <span class="hljs-number">4096</span>;
+    <span class="hljs-keyword">this</span>.buffer = <span class="hljs-keyword">new</span> Buffer(length);
+    <span class="hljs-keyword">this</span>.buffer.fill(<span class="hljs-number">255</span>); <span class="hljs-comment">// XXX debug</span>
+    <span class="hljs-keyword">this</span>.head = <span class="hljs-number">0</span>; <span class="hljs-comment">// first index of stored bytes</span>
+    <span class="hljs-keyword">this</span>.tail = <span class="hljs-number">0</span>; <span class="hljs-comment">// last index of stored bytes</span>
+    <span class="hljs-comment">/* if head &lt; tail, contiguous
+     * if tail &lt; head, broken into two regions
+     * [head, length) and [0, tail) */</span>
+    <span class="hljs-keyword">this</span>.length = <span class="hljs-number">0</span>; <span class="hljs-comment">// the quantity of stored bytes</span>
+    <span class="hljs-comment">/* head === tail may mean empty or full */</span>
+    <span class="hljs-keyword">this</span>.index = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">this</span>.read = <span class="hljs-number">0</span>; <span class="hljs-comment">// [head, read) is being read</span>
+    <span class="hljs-keyword">this</span>.write = <span class="hljs-number">0</span>; <span class="hljs-comment">// [tail, write) is being written</span>
+    <span class="hljs-keyword">this</span>.closed = <span class="hljs-literal">false</span>;
+    <span class="hljs-keyword">this</span>.returnValue = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">this</span>.exhausted = Promise.defer();
+    <span class="hljs-keyword">this</span>.canRead = Promise.defer();
+    <span class="hljs-keyword">this</span>.canWrite = Promise.defer();
+    <span class="hljs-keyword">this</span>.canWrite.resolver.return();
+}
+
+ByteHandler.prototype.next = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.read !== <span class="hljs-keyword">this</span>.head) {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <p>Releases the last window that was checked out for reading.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">this</span>.length -= <span class="hljs-keyword">this</span>.read - <span class="hljs-keyword">this</span>.head;
+        <span class="hljs-keyword">this</span>.head = <span class="hljs-keyword">this</span>.read % <span class="hljs-keyword">this</span>.buffer.length;
+        <span class="hljs-keyword">this</span>.canWrite.resolver.return();
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+              <p>Returns a promise for a chunk of bytes that can be read.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.canRead.promise.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+        <span class="hljs-keyword">this</span>.canRead = Promise.defer();
+        <span class="hljs-keyword">var</span> more;
+        <span class="hljs-comment">/* trying to check out the next contiguous RRRR region */</span>
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.length) {
+            <span class="hljs-comment">/* WWWWW HT WWWW head === tail &amp;&amp; !length, means empty*/</span>
+            <span class="hljs-keyword">this</span>.exhausted.resolver.return();
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Iteration(<span class="hljs-keyword">this</span>.returnValue, <span class="hljs-literal">true</span>);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.head &lt; <span class="hljs-keyword">this</span>.tail) {
+            <span class="hljs-comment">/* head !== length is implied by remainder operator above. */</span>
+            <span class="hljs-comment">/* RRRRR HT RRRR head === tail &amp;&amp; length, means full */</span>
+            <span class="hljs-comment">/* WWW H RRRR T WWW */</span>
+            <span class="hljs-keyword">this</span>.read = <span class="hljs-keyword">this</span>.tail;
+            more = <span class="hljs-literal">false</span>;
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-comment">/* RRR T WWWW H RRR */</span>
+            <span class="hljs-keyword">this</span>.read = <span class="hljs-keyword">this</span>.length;
+            more = <span class="hljs-keyword">this</span>.tail !== <span class="hljs-number">0</span>;
+        }
+        <span class="hljs-keyword">if</span> (more || <span class="hljs-keyword">this</span>.closed) {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+              <p>Causes canRead to open even though length is 0</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="hljs-keyword">this</span>.canRead.resolver.return();
+        }
+        <span class="hljs-keyword">var</span> index = <span class="hljs-keyword">this</span>.index;
+        <span class="hljs-keyword">this</span>.index += <span class="hljs-keyword">this</span>.read - <span class="hljs-keyword">this</span>.head;
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Iteration(<span class="hljs-keyword">this</span>.buffer.slice(<span class="hljs-keyword">this</span>.head, <span class="hljs-keyword">this</span>.read), <span class="hljs-literal">false</span>, index);
+    }, <span class="hljs-keyword">this</span>);
+};
+
+ByteHandler.prototype.yield = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(source)</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.closed) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Can't write to closed stream"</span>);
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <p>Writing, closing, and aborting all imply that the last slice from any of
+these methods is now free space for reading.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.canWrite.promise.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+        <span class="hljs-keyword">this</span>.canWrite = Promise.defer();
+        <span class="hljs-keyword">var</span> length;
+        <span class="hljs-keyword">var</span> more;
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.length === <span class="hljs-keyword">this</span>.buffer.length) {
+            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Can't write until previous flush completes (wait for returned promise)"</span>);
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.head &lt;= <span class="hljs-keyword">this</span>.tail) {
+            <span class="hljs-comment">/* WWW H RRRR T WWW */</span>
+            length = <span class="hljs-built_in">Math</span>.min(source.length, <span class="hljs-keyword">this</span>.buffer.length - <span class="hljs-keyword">this</span>.tail);
+            more = <span class="hljs-keyword">this</span>.head !== <span class="hljs-number">0</span>;
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-comment">/* RRR T WWWW H RRR */</span>
+            length = <span class="hljs-built_in">Math</span>.min(source.length, <span class="hljs-keyword">this</span>.head - <span class="hljs-keyword">this</span>.tail);
+            more = <span class="hljs-literal">false</span>;
+        }
+        <span class="hljs-keyword">if</span> (length) {
+            source.flush(<span class="hljs-keyword">this</span>.buffer.slice(<span class="hljs-keyword">this</span>.tail, <span class="hljs-keyword">this</span>.tail + length));
+            <span class="hljs-keyword">this</span>.tail = (<span class="hljs-keyword">this</span>.tail + length) % <span class="hljs-keyword">this</span>.buffer.length;
+            <span class="hljs-keyword">this</span>.length += length;
+            <span class="hljs-keyword">this</span>.canRead.resolver.return();
+        }
+        <span class="hljs-keyword">if</span> (more) {
+            <span class="hljs-keyword">this</span>.canWrite.resolver.return();
+        }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+              <p>If the flush did not exhaust the source, there was not enough room
+in the target buffer window and we filled it to the brim.
+We must wait for another opportunity to write.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (source.length) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.yield(source);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Iteration();
+        }
+    }, <span class="hljs-keyword">this</span>);
+};
+
+ByteHandler.prototype.return = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.closed) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Can't write to closed stream"</span>);
+    }
+    <span class="hljs-keyword">this</span>.closed = <span class="hljs-literal">true</span>;
+    <span class="hljs-keyword">this</span>.returnValue = value;
+    <span class="hljs-keyword">this</span>.canRead.resolver.return();
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.exhausted.promise;
+};
+
+ByteHandler.prototype.throw = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(error)</span> </span>{
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.closed) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">"Can't write to closed stream"</span>);
+    }
+    <span class="hljs-keyword">this</span>.closed = <span class="hljs-literal">true</span>;
+    <span class="hljs-keyword">this</span>.canRead.resolver.throw(error);
+    <span class="hljs-keyword">return</span> Promise.return(Iteration.done);
+};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-10">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+              <h2 id="window">Window</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Window</span><span class="hljs-params">(buffer, tail, head)</span> </span>{
+    <span class="hljs-keyword">this</span>.buffer = buffer;
+    <span class="hljs-keyword">this</span>.tail = tail || <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">this</span>.head = head || buffer.length;
+    <span class="hljs-keyword">this</span>.length = <span class="hljs-keyword">this</span>.head - <span class="hljs-keyword">this</span>.tail;
+}
+
+Window.prototype.flush = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(target)</span> </span>{
+    <span class="hljs-keyword">var</span> length = <span class="hljs-built_in">Math</span>.min(<span class="hljs-keyword">this</span>.length);
+    <span class="hljs-keyword">this</span>.buffer.copy(target, <span class="hljs-number">0</span>, <span class="hljs-keyword">this</span>.tail);
+    <span class="hljs-keyword">this</span>.tail += target.length;
+    <span class="hljs-keyword">this</span>.length -= target.length;
+};
+
+Window.prototype.capture = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.buffer.slice(<span class="hljs-keyword">this</span>.tail, <span class="hljs-keyword">this</span>.head);
+};</pre></div></div>
+            
+        </li>
+        
+    </ul>
+  </div>
+</body>
+</html>
