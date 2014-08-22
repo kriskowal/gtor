@@ -1062,6 +1062,7 @@ However, it does return `undefined` *when it is done*.
 Of course synchronous functions are implicitly completed when they return,
 but asynchronous functions are done when the asynchronous value they return
 settles.
+`forEach` returns a promise for `undefined`.
 
 Since streams are **unicast**, asynchronous `forEach` would return a task.
 It stands to reason that the asynchonous result of `forEach` on a stream would
