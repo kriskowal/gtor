@@ -1560,7 +1560,7 @@ See the accompanying sketch of a [behavior][] implementation.
 
 ### Progress and estimated time to completion
 
-For example, imagine you are copying the values from a stream into an array.
+Imagine you are copying the values from a stream into an array.
 You know how long the array will be and when you started reading.
 Knowing these variables and assuming that the rate of flow is steady, you can
 infer the amount of **progress** that has been made up to the current time.
@@ -1776,4 +1776,9 @@ implementations.
 -   value
 -   writable
 -   yield
+
+## Acknowledgements
+
+I am grateful to Domenic Denicola, Ryan Paul, and Kevin Smith for reveiwing and
+providing feedback on various drafts of this article.
 
