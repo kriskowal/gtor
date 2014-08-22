@@ -1227,9 +1227,9 @@ Should the asynchronous generator return a promise for an iterator, an iterator
 for promises?
 
 If ``Iterator<T>`` means that an iterator implements `next` such that it
-produces ``Iteration<T>`, the `next` method of an ``Iterator<Promise<T>>`` would
-return an ``Iteration<Promise<T>>``, which is to say, iterations that carry
-promises for values.
+produces ``Iteration<T>``, the `next` method of an ``Iterator<Promise<T>>``
+would return an ``Iteration<Promise<T>>``, which is to say, iterations that
+carry promises for values.
 
 There is another possibility.
 An asynchronous iterator might implement `next` such that it produces

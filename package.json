@@ -21,6 +21,6 @@
   "scripts": {
     "test": "jasminum test",
     "publish": "rm -rf docs; npm run docco; node scripts/publish.js",
-    "docco": "docco promise.js task.js stream.js behavior.js observable.js iteration.js operators.js clock.js"
+    "docco": "docco promise.js task.js stream.js behavior.js observable.js iteration.js operators.js clock.js byte-stream.js"
   }
 }
