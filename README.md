@@ -1332,7 +1332,7 @@ for (let a of [1, 2, 3]) {
 // is equivalent to:
 
 var anIterable = [1, 2, 3];
-var anIterator = anIterable[Symbol.iterate];
+var anIterator = anIterable[Symbol.iterate]();
 while (true) {
     let anIteration = anIterator.next();
     if (anIteration.done) {
@@ -1355,7 +1355,7 @@ for (let a on anAsyncIterable) {
 
 // is equivalent to:
 
-var anAsyncIterator = anAsyncIterable[Symbol.iterate];
+var anAsyncIterator = anAsyncIterable[Symbol.iterate]();
 while (true) {
     var anAsyncIteration = anAsyncIterator.next();
     var anIteration = await anAsyncIteration;
