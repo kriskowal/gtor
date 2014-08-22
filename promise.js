@@ -1,29 +1,22 @@
-// ## Credits
-/*!
- * Copyright 2009-2014 Kris Kowal under the terms of the MIT
- * license found at http://github.com/kriskowal/q/raw/master/LICENSE
- */
-// With thanks to Mark Miller, creator of E promises and numerous documents and
-// examples regarding promises in JavaScript.
-// With thanks to Tyler Close, creator of the Waterken Q library, after which
-// these promises were originally modeled.
-// With thanks to Domenic Denicola for adopting my fork of Q and making its
-// cause his own.
-
-// ## Foreword
-
-// For Vim
-/* vim:ts=4:sts=4:sw=4: */
-// For JSHint
-/*global -WeakMap */
-// For ECMAScript 5
-"use strict";
 
 // A promise is a proxy for a result, be it a return value or a thrown error,
 // regardless of whether that result happened in the past or the future, or
 // even off in some other memory space.
 
-// To make promises, we will enlist the aid of some of our friends.
+/*!
+ * Copyright 2009-2014 Kris Kowal under the terms of the MIT
+ * license found at http://github.com/kriskowal/q/raw/master/LICENSE
+ * With thanks to Mark Miller, creator of E promises and numerous documents and
+ * examples regarding promises in JavaScript.
+ * With thanks to Tyler Close, creator of the Waterken Q library, after which
+ * these promises were originally modeled.
+ * With thanks to Domenic Denicola for adopting my fork of Q and making its
+ * cause his own.
+ */
+
+/* vim:ts=4:sts=4:sw=4: */
+/*global -WeakMap */
+"use strict";
 
 var WeakMap = require("collections/weak-map");
 var Iterator = require("collections/iterator");
@@ -213,8 +206,9 @@ Promise.when = function Promise_when(value, onreturn, onthrow, ms) {
  * promises for values)
  * @returns {Promise.<Array>} a promise for an array of the corresponding values
  */
-// By Mark Miller
-// http://wiki.ecmascript.org/doku.php?id=strawman:concurrency&rev=1308776521#allfulfilled
+/* By Mark Miller
+ * http://wiki.ecmascript.org/doku.php?id=strawman:concurrency&rev=1308776521#allfulfilled
+ */
 Promise.all = Promise_all;
 function Promise_all(questions) {
     var countDown = 0;

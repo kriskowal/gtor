@@ -11,12 +11,13 @@ schedules, and above all, problems that exist between the chair and keyboard.
 
 The field of reactivity is carved into plots ranging from "reactive programming"
 to the subltly distinct "*functional* reactive programming", with acrage set
-aside for "self adjusting computation" and with neighbors like "bindings".
+aside for "self adjusting computation" and with neighbors like "bindings" and
+"operational transforms".
 Adherents favor everything from "continuation passing style" to "promises", or
 the related concepts of "deferreds" and "futures".
-Other problems lend themselves to "observables", sometimes called "signals" or
-"behaviors", and everyone agrees that "streams" are a good idea, but
-"publishers" and "subscribers" are distinct.
+Other problems lend themselves to "observables", "signals", or "behaviors", and
+everyone agrees that "streams" are a good idea, but "publishers" and
+"subscribers" are distinct.
 
 In 1905, Einstein created a theory of special relativity that unified the
 concepts of space and time, and went on to incorporate gravity, to bring the
@@ -191,6 +192,24 @@ The simpler strategy of providing a stream to multiple consumers produces a
 possibly random, portion of the stream.
 The pressure of a shared stream can only be lower than that of a single
 consumer.
+
+In the following example, the `map` operator creates two new streams from a
+single input stream.
+The slow map will see half as many values as the fast map.
+The slow map will consume and produce five values per second, and the fast map
+will consume and produce ten, sustaining a maximum throughput of fifteen values
+per second if the original stream can produce values that quickly.
+If the original stream can only produce ten or less values per second, the
+values will be distributed fairly between both consumers.
+
+```js
+var slow = stream.map(function (n) {
+    return Promise.return(n).delay(200);
+});
+var fast = stream.map(function (n) {
+    return Promise.return(n).delay(100);
+});
+```
 
 In contrast, **publishers** and **subscribers** are **broadcast**.
 Information flows only one direction, from the publishers to the subscribers.
@@ -821,6 +840,10 @@ pass the free `get` function to a consumer and `put` to a producer to preserve
 the principle of least authority and the unidirectional flow of data from
 producer to consumer.
 
+A promise queue does not have a notion of termination, graceful or otherwise.
+We will later use a pair of promise queues to transport iterations between
+**streams**.
+
 
 ### Semaphores
 
@@ -874,7 +897,7 @@ Consider another application.
 You have a producer and a consumer, both doing work asynchronously, the producer
 periodically sending a value to the consumer.
 To ensure that the producer does not produce faster than the consumer can
-consume, we put an object between them that regulates their flow rate, a buffer.
+consume, we put an object between them that regulates their flow rate: a buffer.
 The buffer uses a promise queue to transport values from the producer to the
 consumer, and another promise queue to communicate that the consumer is ready
 for another value from the producer.
@@ -986,8 +1009,8 @@ See the accompanying sketch of a [stream][] implementation.
 
 ### Promise Iterators
 
-One very important PromiseIterator lift a spatial iterator into the temporal
-dimension so it can be consumed on demand over time.
+One very important kind of promise iterator lifts a spatial iterator into the
+temporal dimension so it can be consumed on demand over time.
 In this sketch, we just convert a synchronous `next` method to a method that
 returns a promise for the next iteration instead.
 We use a mythical `iterate` function which would create iterators for all
@@ -1001,7 +1024,7 @@ function PromiseIterator(iterable) {
     this.iterator = iterate(iterable);
 }
 PromiseIterator.prototype.next = function () {
-    return Promise.resolve(this.iterator.next());
+    return Promise.return(this.iterator.next());
 };
 ```
 
@@ -1026,6 +1049,12 @@ consumed, and that the `map` can schedule additional work.
 An asynchronous `map` would accept an additional argument that would limit the
 number of concurrent jobs.
 
+```js
+promiseIterator.map(function (value) {
+    return Promise.return(value + 1000).delay(1000);
+});
+```
+
 #### forEach
 
 Synchronous `forEach` does not produce an output collection or iterator.
@@ -1043,7 +1072,10 @@ to be shared freely among multiple consumers.
 
 ```js
 var task = reader.forEach(function (n) {
-    // ...
+    console.log("consumed", n);
+    return Promise.delay(1000).then(function () {
+        console.log("produced", n);
+    });
 })
 var subtask = task.fork();
 var promise = Promise.return(task);
@@ -1085,6 +1117,20 @@ Whenever a job completes, the result would be placed back in the pool.
 
 An asynchronous iterator would have additional methods like `copy` or `pipe`
 that would send iterations from this reader to another writer.
+This method would be equivalent to using `forEach` to forward iterations and
+`then` to terminate the sequence.
+
+```js
+iterator.copy(generator);
+// is equivalent to:
+iterator.forEach(generator.yield).then(generator.return, generator.throw);
+```
+
+Note that the promise returned by yield applies pressure on the `forEach`
+machine, pushing ultimately back on the iterator.
+
+#### buffer
+
 It would have `buffer` which would construct a buffer with some capacity.
 The buffer would try to always have a value on hand for its consumer by
 prefetching values from its producer.
@@ -1164,7 +1210,7 @@ buffer.out.throw(new Error("That's enough, thanks"));
 ```
 
 
-### Promise Generator Functions
+### Asynchronous Generator Functions
 
 Jafar Husain recently [asked the ECMAScript committee][JH], whether generator
 functions and async functions were composable, and if so, how they should
@@ -1190,7 +1236,7 @@ An asynchronous iterator might implement `next` such that it produces
 That is to say, a promise that would eventually produce an iteration containing
 a value, rather than an iteration that contains a promise for a value.
 
-This is a iterator of promises, yielding ``Iteration<Promise<T>>``:
+This is, an iterator of promises, yielding ``Iteration<Promise<T>>``:
 
 ```js
 var iteration = iterator.next();
@@ -1207,6 +1253,15 @@ promiseIterator.next()
     return callback.call(thisp, iteration.value);
 })
 ```
+
+Promises capture asynchronous results.
+That is, they capture both the value and error cases.
+If `next` returns a promise, the error case would model abnormal termination of
+a sequence.
+Iterations capture the normal continuation or termination of a sequence.
+If the value of an iteration were a promise, the error case would capture
+inability to transport a single value but would not imply termination of the
+sequence.
 
 In the context of this framework, the answer is clear.
 An asynchronous generator function uses both `await` and `yield`.
@@ -1341,8 +1396,8 @@ There is more than one way to solve the problem of processor contention or
 process over-scheduling.
 Streams have a very specific contract that makes pressurization necessary.
 Specifically, a stream is intended to transport the entirety of a collection and
-strongly resembles a spatial collection that has been rotated 90 degrees into a
-temporal collection.
+strongly resembles a spatial collection that has been rotated 90 degrees onto
+the temporal axis.
 However, there are other contracts that lead us to very different strategies to
 avoid over-commitment and they depend entirely on the meaning of the data in
 transit.
@@ -1368,8 +1423,12 @@ setter side of some temporal collection.
 Any number of consumers can subscribe to the getter side and it will push a
 notification their way.
 
-Both of these cases are distinct from streams and have interesting relationships
-with each other.
+However, if we infer a smooth animation from the discrete scroll positions and
+their times, we can sample the scroll position *function* on each animation
+frame.
+
+These cases are distinct from streams and have interesting relationships with
+each other.
 With the temperature sensor, changes are **continuous**, whereas with the scroll
 position observer, the changes are **discrete**.
 With the temperature sensor, we sample the data at a much lower frequency than
@@ -1378,8 +1437,8 @@ temperature and redisplay it.
 If we were to sample the data at a higher frequency than the display, it would
 be sufficient for the transport to forget old values each time it receives a new
 one.
-Also, unlike a stream, these cases are both well adapted for many producer and
-many consumer scenarios.
+Also, unlike a stream, these cases are both well adapted for multiple-producer
+and multiple-consumer scenarios.
 
 Also unlike streams, one of these concepts pushes data and the other polls or
 pulls data.
@@ -1408,16 +1467,15 @@ Yet even behaviors have variations like probes, gauges, counters,
 flow gauges, accumulators, flushable accumulators, and rotating counters.
 
 
-### Signals
+### Observables and Signals
 
-A signal represents a value that changes over time.
+A **signal** represents a value that changes over time.
 The signal is asynchronous and plural, like a stream.
 Unlike a stream, a signal can have multiple producers and consumers.
+The output side of a signal is an **observable**.
 
 A signal has a getter side and a setter side.
 The asynchronous getter for a signal is an observable instead of a reader.
-Unlike a readable stream, you do not use `next()` to pull or poll an
-asynchronous value from the observable.
 The observable implements `forEach`, which subscribes an observer to receive
 push notifications whenever the signal value changes.
 
@@ -1441,13 +1499,17 @@ does not accept a promise.
 A signal can only push.
 The consumer (or consumers) cannot push back.
 
-See the accompanying sketch of a [signal][] implementation.
+Observables *also* implement `next`, which returns an iteration that captures
+the most recently dispatched value.
+This allows us to poll a signal as if it were a behavior.
 
-[signal]: http://kriskowal.github.io/gtor/docs/signal.html
+See the accompanying sketch of a [observable][] implementation.
+
+[observable]: http://kriskowal.github.io/gtor/docs/observable.html
 
 Just as streams relate to buffers, not every observable must be paired with a
 signal generator.
-A noteworth example of an external observable is a clock.
+A noteworthy example of an external observable is a clock.
 A clock emits a signal with the current time at a regular period and offset.
 
 ```js
@@ -1478,312 +1540,20 @@ daemon.signals.yield("SIGHUP");
 
 ### Behaviors
 
-A behavior is a time series value that may have a different value for every
-moment in time.
-This is a sketch of a behavior.
+A behavior represents a time series value.
+A behavior may produce a different value for every moment in time.
+As such, they must be **polled** at an interval meaningful to the consumer,
+since the behavior itself has no inherent resolution.
 
-```js
-var value = null;
-var behavior = {
-    in: {
-        next: function () {
-            return {value: value, done: false};
-        }
-    },
-    out: {
-        yield: function (_value) {
-            value = _value;
-        }
-    }
-};
-```
+Behaviors are analogous to Observables, but there is no corresponding setter,
+since it produces values on demand.
+The behavior constructor accepts a function that returns the value for a given
+time.
+An asynchronous behavior returns promises instead of values.
 
-The significance of a behavior is that it can capture a signal, transforming a
-push interface into a pull interface.
-Whatever the signal last emitted is the value that will be subsequently polled
-or forgotten.
-The behavior allows the sample rate of a producer to differ from the sample rate
-of a consumer.
-It is also straight-forward to convert a behavior back to a signal at an
-arbitrary interval.
+See the accompanying sketch of a [behavior][] implementation.
 
-```js
-input.forEach(behavior.yield, behavior);
-var output = new Signal();
-var clock = new Clock(100); // 10Hz
-clock.forEach(function () {
-    var iteration = behavior.next();
-    output.generator.yield(iteration.value);
-});
-return output.iterator;
-```
-
-
-### Probes
-
-A probe is a synchronous plural getter.
-On one hand, probes are a special case of an iterator, but like a behavior,
-represent a time series of an underlying value.
-The probe constructor lifts a simple callback.
-The callback must return the next value in the series.
-
-Consider this sketch of the `map` method of a `Behavior`.
-The map method of a behavior produces a probe that will transform the current
-value of the underlying behavior on demand.
-
-```js
-Behavior.prototype.map = function (callback, thisp) {
-    return new Probe(function (index) {
-        var iteration = this.next(null, index);
-        return callback.call(thisp, iteration.value, index, this);
-    }, this);
-};
-```
-
-Suppose you have a promise.
-Promises may provide a signal for their estimated time to completion.
-Whenever the ETC changes, you receive the new time.
-The user interface, however, requires a progress behavior it can poll for each
-animation frame.
-We can channel the estimated time completion signal into a last-known estimated
-time to completion behavior, and then use a probe to transform the ETC into a
-progress estimate.
-
-```js
-var start = Date.now();
-return promise.observeEstimate()
-.behavior()
-.map(function (estimate) {
-    var now = Date.now();
-    return (now - start) / (estimate - start);
-});
-```
-
--   TODO explain operators in a lift
-
-Consider lifting an operator to a behavior operator.
-`Behavior.lift(add)` will take the `add(x:number, y:number): number` operator
-and return a ``add(x:Behavior<number>, y:Behavior<number>):Behavior<number>;``
-behavior operator.
-
-```js
-Behavior.lift = function (operator, thisp) {
-    return function behaviorOperator() {
-        var operandBehaviors = Array.prototype.slice.call(arguments);
-        return new Probe(function (time) {
-            var operands = operandBehaviors.map(function (operandBehavior) {
-                return operandBehavior.next().value;
-            });
-            return new Iteration(operator.apply(thisp, operands), time);
-        });
-    };
-};
-
-Behavior.add = Behavior.lift(Operators.add);
-
-Behavior.prototype.add = function (that) {
-    return Behavior.add(this, that);
-};
-```
-
-
-### Derrivative Signals
-
-Suppose that your kernel tracks the total number of transmitted bytes by every
-interface in a four byte unsigned integer, but owing to the limited size of the
-behavior and the amount of traffic that this network sees, the integer
-periodically overflows.
-The measurement is not useful for tracking the total number of bytes sent
-because the integer is always relative to the last time it overflowed, but as
-long as you consistently poll the integer more frequently than it overflows, it
-is still useful for monitoring the rate of flow.
-
-So you set up a clock to emit a signal once a second.
-Each time you receive this signal, you probe the kernel for its transmitted
-bytes figure.
-
-```js
-var clock = new Clock({period: 1000});
-var tx = clock.map(function (time) {
-    return getTrasmittedBytes("eth0");
-})
-```
-
-
--   TODO
-
-
-```js
-Signal.prototype.dt = function () {
-    var previousValue;
-    var previousTime;
-    var signal = new Signal();
-    this.forEach(function (value, time) {
-        if (previousTime) {
-            signal.generator.yield(
-                (value - previousValue) /
-                (time - previousTime),
-                time
-            );
-        }
-        previousTime = time;
-        previousValue = value;
-    });
-    return signal.iterator;
-}
-```
-
--   TODO
-
-```js
-var positionSignal = observePosition();
-var velocitySignal = positionSignal.dt();
-var accelerationSignal = velocitySignal.dt();
-var jerkSignal = accelerationSignal.dt();
-var snapSignal = jerkSignal.dt();
-var crackleSignal = snapSignal.dt();
-var popSignal = crackleSignal.dt();
-```
-
--   TODO
-
-```js
-Reader.prototype.tap = function (generator) {
-    return this.map(function (value, time) {
-        generator.yield(value, time);
-        return value;
-    });
-};
-```
-
-```js
-var chunkSignal = new Signal();
-var contentPromise = stream.tap(chunkSignal.generator).read();
-var estimateSignal = contentPromise.observeEstimate();
-var start = Date.now();
-var progressBehavior = estimateSignal.behavior().map(function (estimate) {
-    return (now - start) / (estimate - start);
-});
-var chunkVelocitySignal = chunkSignal.map(function (chunk) {
-    return chunk.length;
-}).dt();
-```
-
-### Gauges
-
--   TODO ellaborate
-
-### Counters
-
--   TODO ellaborate
-
-### Flow Gauges
-
--   TODO ellaborate
-
-### Accumulators
-
--   TODO ellaborate
-
-### Flushable Accumulators
-
--   TODO ellaborate
-
-### Rotating Counters
-
--   TODO ellaborate
-
-### Signals, Behaviors, and Streams
-
-Behaviors and signals can be channeled into a writable stream.
-Particularly if you do not want to miss any values produced by a signal, you can
-send the signal output directly into a buffer’s input.
-
-```js
-var buffer = new Buffer();
-signal.iterator.forEach(buffer.generator.yield, buffer.generator);
-return buffer.iterator.forEach(process);
-```
-
-However, note that when the `process` is slower than the signal, the buffer will
-flood, and when the signal is slower than the processor, the buffer will drain.
-For this case, it might be prudent to use a monitor to watch the size of the
-buffer.
-This is a sketch of a monitor method for a signal that would provide both a
-readable stream and a signal that will keep us appraised of the buffer size.
-
-```js
-SignalIterator.prototype.monitor = function () {
-    var buffer = new Buffer();
-    var signal = new Signal();
-    var length = 0;
-    this.forEach(function (value) {
-        buffer.generator.yield(value);
-        signal.generator.yield(++length);
-    });
-    return {
-        iterator: {
-            next: function () {
-                signal.yield(--length);
-                return buffer.next();
-            }
-        },
-        monitor: signal.iterator
-    }
-};
-```
-
-Recall that we can promote any iterable to a readable stream.
-We earlier implied that this would be useful for performing asynchronous work on
-each value from an array or collection, maybe even the output of an indefinite
-iterator or generator.
-A behavior iterator is also a suitable input for a reader
-
-```js
-return new Reader(behavior.iterator).forEach(process);
-```
-
-However, the behavior produces an infinite series of values and depending on how
-frequently the behavior gets updated and how frequently a process may be
-completed, the processor may receive many duplicate values.
-To avoid duplicates, it may be better to channel the behavior into a high
-frequency signal that filters duplicates.
-Consider a `uniq` method on a signal.
-
-```js
-SignalIterator.prototype.uniq = function (equals) {
-    var output = new Signal();
-    var previous;
-    this.forEach(function (value, time) {
-        if (!equals(previous, value)) {
-            output.generator.yield(value, time);
-            previous = value;
-        }
-    });
-    return output.iterator;
-};
-```
-
-Unix systems reserve the term `uniq` for sequences that do not have adjacent
-duplicates, but are not universally unique.
-The common idiom is to implement a fully `unique` method by sorting a stream and
-then passing it through a `uniq` filter.
-
-Likewise, we can create a signal from the output of a stream.
-
-```js
-var signal = new Signal();
-reader.forEach(signal.yield, signal);
-```
-
-However, the signal will create an eternal vaccum at the end of the stream,
-drawing values out of the stream as quickly as the stream can produce them.
-The benefit of converting a stream to a signal is that with a signal, multiple
-consumers can listen to every value that comes out of the stream.
-If multiple consumers draw data from a readable stream using `forEach` directly,
-each value produced by the stream will only be seen by one of the consumers.
-Signals and behaviors are broadcast.
-Streams are unicast.
+[behavior]: http://kriskowal.github.io/gtor/docs/behavior.html
 
 
 ## Cases

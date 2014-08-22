@@ -151,7 +151,7 @@ Stream.prototype.throw = function (error) {
 };
 
 // ### do
-//
+
 // The `do` method is a utility for `forEach` and `map`, responsible for
 // setting up an appropriate semaphore for the concurrency limit.
 
@@ -208,7 +208,7 @@ Stream.prototype.do = function (callback, errback, limit) {
 };
 
 // ### forEach
-//
+
 // The `forEach` method will execute jobs, typically in serial, and returns a
 // cancelable promise (`Task`) for the completion of all jobs.
 // The default concurrency limit is 1, making `forEach` as serial as it is for
@@ -268,7 +268,7 @@ Stream.prototype.forEach = function (callback, thisp, limit) {
 };
 
 // ### map
-//
+
 // The `map` method runs jobs in parallel, taking values from this iterator and
 // sending them to the returned promise iterator.
 // There is no default limit to concurrency, but you can pass a number.
@@ -326,7 +326,7 @@ Stream.prototype.map = function (callback, thisp, limit) {
 };
 
 // ### filter
-//
+
 // The filter method runs concurrent tests to determine whether to include an
 // iteration from the input stream on the output stream.
 // The regularity of the duration of the test will determine whether iterations
@@ -378,7 +378,7 @@ Stream.prototype.filter = function (callback, thisp, limit) {
 };
 
 // ### reduce
-//
+
 // The `reduce` method runs concurrent jobs to acrete values from the input
 // stream until only one value remains, returning a cancelable promise (task)
 // for that last value.
@@ -388,7 +388,7 @@ Stream.prototype.filter = function (callback, thisp, limit) {
 /* TODO reduce, some, every */
 
 // ### fork
-//
+
 // The fork method creates an array of streams that will all see every value
 // from this stream.
 // All of the returned streams put back pressure on this stream.
