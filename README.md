@@ -1676,6 +1676,9 @@ value spaces.
 
 Implementing distributed sort using streams is also a worthy exercise.
 
+Asynchronous behaviors would benefit from an operator that solves the thundering
+herd problem, the inverse of throttling.
+
 How to implement type ahead suggestion is a great case to explore cancelable
 streams and tasks.
 
