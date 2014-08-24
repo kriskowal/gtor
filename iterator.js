@@ -113,6 +113,7 @@ MapIterator.prototype.next = function (value, next) {
                 iteration.index,
                 this.iteration
             ),
+            false,
             iteration.index
         );
     }
@@ -297,6 +298,7 @@ RecountIterator.prototype.next = function () {
     } else {
         return new Iteration(
             iteration.value,
+            false,
             this.index++
         );
     }
@@ -342,6 +344,7 @@ IndexIterator.prototype.next = function () {
     }
     var iteration = new Iteration(
         this.iterable[this.start],
+        false,
         this.start
     );
     this.start += this.step;
@@ -359,7 +362,7 @@ ObjectIterator.prototype.next = function () {
         return iteration;
     } else {
         var key = iteration.value;
-        return new Iteration(this.object[key], key);
+        return new Iteration(this.object[key], false, key);
     }
 };
 
@@ -454,7 +457,7 @@ UnzipIterator.prototype.next = function () {
     if (done) {
         return Iteration.done;
     } else {
-        return new Iteration(result, this.index++);
+        return new Iteration(result, false, this.index++);
     }
 };
 
@@ -495,7 +498,7 @@ RangeIterator.prototype.next = function () {
     } else {
         var result = this.start;
         this.start += this.step;
-        return new Iteration(result, this.index++);
+        return new Iteration(result, false, this.index++);
     }
 };
 
@@ -517,7 +520,7 @@ RepeatIterator.prototype.constructor = RepeatIterator;
 
 RepeatIterator.prototype.next = function () {
     if (this.index < this.times) {
-        return new Iteration(this.value, this.index++);
+        return new Iteration(this.value, false, this.index++);
     } else {
         return Iteration.done;
     }

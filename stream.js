@@ -29,6 +29,7 @@ var Task = require("./task");
 var Promise = require("./promise");
 var Observable = require("./observable");
 var PromiseQueue = require("./promise-queue");
+var Iterator = require("./iterator");
 var Iteration = require("./iteration");
 var WeakMap = require("weak-map");
 
@@ -76,22 +77,30 @@ Stream.buffer = function (length) {
     Stream_bind(input);
     Stream_bind(output);
     // If the user provides a buffer length, we prime the incoming message
-    // queue with that many iterations.
+    // queue (pre-acknowledgements) with that many iterations.
     // This allows the producer to stay this far ahead of the consumer.
-    while (length != null && length--) {
+    for (; length > 0; length--) {
         incoming.put(new Iteration());
+    }
+    // By contrast, if the buffer has a negative length, we prime the outgoing
+    // message queue (data) with that many undefined iterations.
+    // This gives some undefined values to the consumer, allowing it to proceed
+    // before the producer has provided any iterations.
+    for (; length < 0; length++) {
+        outgoing.put(new Iteration());
     }
     return {in: input, out: output};
 };
 
 // The `from` method creates a stream from an iterable or a promise iterable.
 Stream.from = function (iterable) {
-    return new this(function (_yield, _return) {
-        Promise.return(iterable)
-        .invoke("forEach", _yield)
-        .then(_return)
-        .done();
-    });
+    var stream = Object.create(Stream.prototype);
+    var iterator = new Iterator(iterable);
+    stream.yield = function (value, index) {
+        return Promise.return(iterator.next(value, index));
+    };
+    Stream_bind(stream);
+    return stream;
 };
 
 // The kernel methods of a stream are bound to the stream so they can be passed
@@ -188,7 +197,9 @@ Stream.prototype.do = function (callback, errback, limit) {
                     // Once we have begun a job, we can begin waiting for
                     // another job.
                     // A resource may already be available on the queue.
-                    next.call(this);
+                    if (!iteration.done) {
+                        next.call(this);
+                    }
                     // We pass the iteration forward to the callback, as
                     // defined by either `forEach` or `map`, to handle the
                     // iteration appropriately.
@@ -419,5 +430,31 @@ Stream.prototype.fork = function (length) {
         }));
     }).done();
     return outputs;
+};
+
+// ### relieve
+
+// If we consume this stream more slowly than it produces iterations, pressure
+// will accumulate between the consumer and the producer, slowing the producer.
+// The `relieve` method alleviates this pressure.
+// This stream will be allowed to produce values as quickly as it can,
+// and the returned stream will lose intermediate values if it can not keep up.
+// The consumer will only see the most recent value from the producer upon
+// request.
+// However, if the consumer is faster than the producer, the relief will have no
+// effect.
+
+Stream.prototype.relieve = function () {
+    var current = Promise.defer();
+    this.forEach(function (value, index) {
+        current.resolver.return(new Iteration(value, false));
+        current = Promise.defer();
+    })
+    .done(function (value) {
+        current.resolver.return(new Iteration(value, true));
+    }, current.resolver.throw);
+    return Stream.from(function () {
+        return current.promise;
+    });
 };
 

@@ -1035,6 +1035,21 @@ However, consider that a synchronous iterator might, apart from implementing
 Likewise, an asynchronous iterator might provide analogues to these functions
 lifted into the asynchronous realm.
 
+The accompanying sketch of a stream constructor implements a method
+`Stream.from`, analogous to ECMAScript 6's own `Array.from`.
+This function coerces any iterable into a stream, consuming that iterator on
+demand.
+This allows us, for example, to run an indefinite sequence of jobs, counting
+from 1, doing four jobs at any time.
+
+```js
+Stream.from(Iterator.range(1, Infinity))
+.forEach(function (n) {
+    return Promise.delay(1000).thenReturn(n);
+}, null, 4)
+.done();
+```
+
 #### map
 
 For example, asynchronous `map` would consume iterations and run jobs on each of
