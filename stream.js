@@ -25,6 +25,8 @@
 // Since a stream is unicast, it is also **cancelable**.
 // Either side of a connection can terminate the other.
 
+"use strict";
+
 var Task = require("./task");
 var Promise = require("./promise");
 var Observable = require("./observable");

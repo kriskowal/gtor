@@ -32,5 +32,5 @@ Iteration.prototype.equals = function (that, equals, memo) {
 // iteration does not need to carry a return value.
 // This singleton exists only to avoid unnecessarily allocating a new iteration
 // for each of these cases.
-Iteration.done = new Iteration(null, true, null);
+Iteration.done = new Iteration(undefined, true, undefined);
 
