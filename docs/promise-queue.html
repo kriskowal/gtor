@@ -108,11 +108,6 @@ and put later, or put first and gotten later.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-pi">
-"use strict"</span>;
-
-<span class="hljs-keyword">var</span> Promise = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./promise"</span>);</pre></div></div>
-            
         </li>
         
         
@@ -122,9 +117,15 @@ and put later, or put first and gotten later.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-3">&#182;</a>
               </div>
-              <h2 id="promisequeue">PromiseQueue</h2>
+              <p>This implementation comes from Mark Miller’s <a href="http://wiki.ecmascript.org/doku.php?id=strawman:concurrency">Concurrency Strawman</a> for
+ECMAScript.</p>
 
             </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-pi">
+"use strict"</span>;
+
+<span class="hljs-keyword">var</span> Promise = <span class="hljs-built_in">require</span>(<span class="hljs-string">"./promise"</span>);</pre></div></div>
             
         </li>
         
@@ -135,9 +136,7 @@ and put later, or put first and gotten later.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-4">&#182;</a>
               </div>
-              <p>The promise queue constructor returns an entangled <code>get</code> and <code>put</code> pair.
-These methods may be passed as functions, granting either the capability to
-give or take but not necessarily both.</p>
+              <h2 id="promisequeue">PromiseQueue</h2>
 
             </div>
             
@@ -149,6 +148,21 @@ give or take but not necessarily both.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <p>The promise queue constructor returns an entangled <code>get</code> and <code>put</code> pair.
+These methods may be passed as functions, granting either the capability to
+give or take but not necessarily both.</p>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
               </div>
               <p>Internally, a promise queue is an asynchronous linked list of deferreds.
 The <code>ends</code> variable is a <code>promise</code> and <code>resolver</code> pair.
@@ -173,11 +187,11 @@ corresponding to the same deferred.</p>
         </li>
         
         
-        <li id="section-6">
+        <li id="section-7">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-6">&#182;</a>
+                <a class="pilcrow" href="#section-7">&#182;</a>
               </div>
               <p>The <code>resolver</code> side of a promise queue adds a <code>{head, tail}</code> node to the
 asynchronous linked list.
@@ -198,11 +212,11 @@ The <code>put</code> method creates a new link to the resolver side with the giv
         </li>
         
         
-        <li id="section-7">
+        <li id="section-8">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-7">&#182;</a>
+                <a class="pilcrow" href="#section-8">&#182;</a>
               </div>
               <p>The <code>promise</code> end of a promise queue is a promise for a <code>{head, tail}</code>
 pair.
@@ -222,11 +236,11 @@ advances the <code>promise</code> to become the <code>tail</code>.</p>
         </li>
         
         
-        <li id="section-8">
+        <li id="section-9">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-8">&#182;</a>
+                <a class="pilcrow" href="#section-9">&#182;</a>
               </div>
               <p>The promise queue constructor allows the queue to be initialized with
 a given population of values.</p>
