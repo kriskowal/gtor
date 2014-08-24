@@ -5,6 +5,11 @@
 // For each respective promise and resolution, the promise may be gotten first
 // and put later, or put first and gotten later.
 
+// This implementation comes from Mark Miller's [Concurrency Strawman][] for
+// ECMAScript.
+//
+// [Concurrency Strawman]: http://wiki.ecmascript.org/doku.php?id=strawman:concurrency
+
 "use strict";
 
 var Promise = require("./promise");
