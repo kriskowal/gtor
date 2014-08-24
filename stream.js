@@ -176,7 +176,9 @@ Stream.prototype.do = function (callback, errback, limit) {
             .then(function (iteration) {
                 // Before even beginning the job, we start waiting for another
                 // value.
-                next.call(this);
+                if (!iteration.done) {
+                    next.call(this);
+                }
                 return callback(iteration);
             }, null, this)
         };
