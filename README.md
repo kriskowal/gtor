@@ -134,7 +134,7 @@ Tasks are **unicast** and therefore cancelable.
 
 See the accompanying sketch of a [task][] implementation.
 
-[task]: http://kriskowal.github.io/gtor/docs/task.html
+[task]: http://kriskowal.github.io/gtor/docs/task
 
 There is also an esoteric difference between a promise and a future.
 Promise resolvers accept either a value or a promise and will recursively unwrap
@@ -840,6 +840,10 @@ pass the free `get` function to a consumer and `put` to a producer to preserve
 the principle of least authority and the unidirectional flow of data from
 producer to consumer.
 
+See the accompanying sketch of a [promise queue][] implementation.
+
+[promise queue]: http://kriskowal.github.io/gtor/docs/promise-queue
+
 A promise queue does not have a notion of termination, graceful or otherwise.
 We will later use a pair of promise queues to transport iterations between
 **streams**.
@@ -1004,7 +1008,7 @@ would return an `{in, out}` pair of entangled streams.
 
 See the accompanying sketch of a [stream][] implementation.
 
-[stream]: http://kriskowal.github.io/gtor/docs/stream.html
+[stream]: http://kriskowal.github.io/gtor/docs/stream
 
 
 ### Promise Iterators
@@ -1521,7 +1525,7 @@ This allows us to poll a signal as if it were a behavior.
 
 See the accompanying sketch of a [observable][] implementation.
 
-[observable]: http://kriskowal.github.io/gtor/docs/observable.html
+[observable]: http://kriskowal.github.io/gtor/docs/observable
 
 Just as streams relate to buffers, not every observable must be paired with a
 signal generator.
@@ -1541,7 +1545,7 @@ tock.forEach(function (tock) {
 
 See the accompanying sketch of a [clock][] implementation.
 
-[clock]: http://kriskowal.github.io/gtor/docs/clock.html
+[clock]: http://kriskowal.github.io/gtor/docs/clock
 
 Signals may correspond to system or platform signals like keyboard or mouse
 input or other external sensors.
@@ -1569,7 +1573,7 @@ An asynchronous behavior returns promises instead of values.
 
 See the accompanying sketch of a [behavior][] implementation.
 
-[behavior]: http://kriskowal.github.io/gtor/docs/behavior.html
+[behavior]: http://kriskowal.github.io/gtor/docs/behavior
 
 
 ## Cases
