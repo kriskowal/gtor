@@ -217,9 +217,23 @@ advances the <code>promise</code> to become the <code>tail</code>.</p>
         <span class="hljs-keyword">var</span> result = ends.promise.get(<span class="hljs-string">"head"</span>);
         ends.promise = ends.promise.get(<span class="hljs-string">"tail"</span>);
         <span class="hljs-keyword">return</span> result;
-    };
+    };</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <p>The promise queue constructor allows the queue to be initialized with
+a given population of values.</p>
 
-    <span class="hljs-keyword">if</span> (values) {
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (values) {
         values.forEach(<span class="hljs-keyword">this</span>.put, <span class="hljs-keyword">this</span>);
     }
 }</pre></div></div>

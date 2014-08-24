@@ -466,7 +466,9 @@ value.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>                next.call(<span class="hljs-keyword">this</span>);
+            <div class="content"><div class='highlight'><pre>                <span class="hljs-keyword">if</span> (!iteration.done) {
+                    next.call(<span class="hljs-keyword">this</span>);
+                }
                 <span class="hljs-keyword">return</span> callback(iteration);
             }, <span class="hljs-literal">null</span>, <span class="hljs-keyword">this</span>)
         };
