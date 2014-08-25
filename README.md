@@ -512,9 +512,9 @@ Collectively the promise and resolver are a deferred value.
 The salient method of a promise is `then`, which creates a new promise for the
 result of a function that will eventually observe the value of the promise.
 If a promise were plural, the `then` method might be called `map`.
-And if you care to beg an esoteric distinction, it might be called `flatMap`,
-since "unboxing" a promise for a value is the temporal equivalent of spatially
-taking a single value out of an array.
+If you care to beg an esoteric distinction, it might be called `map` if the
+observer returns a value and `flatMap` if the observer returns a promise.
+The `then` method of a promise allows either.
 
 ```js
 var promiseForThirty = promiseForTen.then(function (ten) {
