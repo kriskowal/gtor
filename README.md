@@ -1538,7 +1538,7 @@ var tock = new Clock({period: 1000, offset: 500});
 tick.forEach(function (time) {
     console.log("tick", time);
 })
-tock.forEach(function (tock) {
+tock.forEach(function (time) {
     console.log("tock", time);
 });
 ```
