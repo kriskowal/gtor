@@ -1735,7 +1735,7 @@ be active or inactive based on whether anyone is looking.
 The research into continuous behaviors and the original idea of Functional
 Reactive Programming by [Conal Elliott][] deserves attention.
 
-[Conal Eliott]: http://conal.net/
+[Conal Elliott]: http://conal.net/
 
 The interplay between promises and tasks with their underlying progress behavior
 and estimated time to completion and status signals require further exlpanation.
