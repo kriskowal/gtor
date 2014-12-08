@@ -1034,7 +1034,7 @@ PromiseIterator.prototype.next = function () {
 
 The conversion may seem superfluous at first.
 However, consider that a synchronous iterator might, apart from implementing
-`next()`, also implement methods analogous methods to `Array`, like `forEach`,
+`next()`, also implement methods analogous to `Array`, like `forEach`,
 `map`, `filter`, and `reduce`.
 Likewise, an asynchronous iterator might provide analogues to these functions
 lifted into the asynchronous realm.
