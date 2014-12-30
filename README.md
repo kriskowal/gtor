@@ -232,7 +232,7 @@ Discrete values should be **pushed** whereas continuous values should be
 (If a homophone is a disaster, what are synonymous homophones?)
 
 The current time or temperature are examples of **continous behaviors**.
-Animation frames and morse code are an examples of **discrete signals**.
+Animation frames and morse code are examples of **discrete signals**.
 
 
 ## Primitives
@@ -297,7 +297,7 @@ function range(start, stop, step) {
 ```
 
 If the `stop` value of the range is `Infinity`, the iterator will have no end,
-will never produce a `done` iteration.
+and will never produce a `done` iteration.
 Unlike an array, an idefinite iterator consumes no more memory than an empty
 one.
 
@@ -478,7 +478,7 @@ conclude that it cannot produce another value.
 There is no proposal for a standard generator, but for the sake of completeness,
 if an array iterator consumes an array, an array generator would lazily produce
 one.
-An array generator object would implement `yield` as a methods with behavior
+An array generator object would implement `yield` as a method with behavior
 analogous to the same keyword within a generator function.
 The `yield` method would add a value to the array.
 
@@ -564,7 +564,7 @@ in an already-fulfilled promise.
 In all positions, `resolve` is the temporal analogue of `return` and `reject` is
 the temporal analogue of `throw`.
 Since promises as we know them today bridged the migration gap from ECMAScript 3
-to ECMAScript 6, it was also necessary to use non-keywords for method names. 
+to ECMAScript 6, it was also necessary to use non-keywords for method names.
 
 A deferred value can be deferred further by resolving it with another promise.
 This can occur either expressly through the resolver, or implicitly by returning
