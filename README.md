@@ -298,7 +298,7 @@ function range(start, stop, step) {
 
 If the `stop` value of the range is `Infinity`, the iterator will have no end,
 and will never produce a `done` iteration.
-Unlike an array, an idefinite iterator consumes no more memory than an empty
+Unlike an array, an indefinite iterator consumes no more memory than an empty
 one.
 
 ```js
