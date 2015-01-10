@@ -688,7 +688,7 @@ value.
 Return stops the trampoline and returns the value, all the way out to the
 promise returned by the async function.
 If you yield a promise that eventually throws an error, the async function
-resumes the gnerator with that error, giving it a chance to recover.
+resumes the generator with that error, giving it a chance to recover.
 
 [Async]: http://wiki.ecmascript.org/doku.php?id=strawman:async_functions#reference_implementation
 
