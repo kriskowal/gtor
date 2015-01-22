@@ -58,7 +58,7 @@ Data flows in one direction, from the setter to the getter.
 
 The duality of a getter and a setter, a producer and a consumer, or a writer and
 a reader, exists in every reactive primitive.
-Erik Miejer shows us the parallelism and reflection that exists between various
+Erik Meijer shows us the parallelism and reflection that exists between various
 types of reactive duals in his [keynote for Lang.NEXT, 2014][EM].
 
 [EM]: http://channel9.msdn.com/Events/Lang-NEXT/Lang-NEXT-2014/Keynote-Duality
