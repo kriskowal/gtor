@@ -94,9 +94,9 @@ Generator  | Setter        | Plural   | Spatial  |
 Deferred   | Value         | Singular | Temporal |
 Promise    | Getter        | Singular | Temporal |
 Resolver   | Setter        | Singular | Temporal |
+Stream     | Value         | Plural   | Temporal |
 Reader     | Getter        | Plural   | Temporal |
 Writer     | Setter        | Plural   | Temporal |
-Stream     | Value         | Plural   | Temporal |
 
 
 ### Singular and temporal
