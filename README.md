@@ -10,7 +10,7 @@ The term is usually reserved for systems that respond in turns to sensors,
 schedules, and above all, problems that exist between the chair and keyboard.
 
 The field of reactivity is carved into plots ranging from "reactive programming"
-to the subltly distinct "*functional* reactive programming", with acrage set
+to the subtly distinct "*functional* reactive programming", with acrage set
 aside for "self adjusting computation" and with neighbors like "bindings" and
 "operational transforms".
 Adherents favor everything from "continuation passing style" to "promises", or
