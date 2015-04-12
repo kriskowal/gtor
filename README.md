@@ -231,7 +231,7 @@ Discrete values should be **pushed** whereas continuous values should be
 **pulled** or **polled**.
 (If a homophone is a disaster, what are synonymous homophones?)
 
-The current time or temperature are examples of **continous behaviors**.
+The current time or temperature are examples of **continuous behaviors**.
 Animation frames and morse code are examples of **discrete signals**.
 
 
@@ -411,7 +411,7 @@ values, and backward as requests for more values.
 However, the consumer can send other information back to the producer.
 The `next` method, familiar from basic iterators, gains the ability to determine
 the value of the `yield` expression from which the generator resumes.
-As a trivial example, consider a generator that echos whatever the consumer
+As a trivial example, consider a generator that echoes whatever the consumer
 requests.
 
 ```js
@@ -688,7 +688,7 @@ value.
 Return stops the trampoline and returns the value, all the way out to the
 promise returned by the async function.
 If you yield a promise that eventually throws an error, the async function
-resumes the gnerator with that error, giving it a chance to recover.
+resumes the generator with that error, giving it a chance to recover.
 
 [Async]: http://wiki.ecmascript.org/doku.php?id=strawman:async_functions#reference_implementation
 
@@ -864,7 +864,7 @@ The process will "down" the semaphore whenever it enters a region where it needs
 a resource, and will "up" the semaphore whenever it exits that region.
 The terminology goes back to raising and lowering flags.
 You can imagine your process as being a train and a semaphore as guarding the
-entrace to a particular length of track.
+entrance to a particular length of track.
 Your process stops at the gate until the semaphore goes up.
 
 Of course, in a reactive program, we don’t block.
@@ -1084,7 +1084,7 @@ settles.
 `forEach` returns a promise for `undefined`.
 
 Since streams are **unicast**, asynchronous `forEach` would return a task.
-It stands to reason that the asynchonous result of `forEach` on a stream would
+It stands to reason that the asynchronous result of `forEach` on a stream would
 be able to propagate a cancellation upstream, stopping the flow of data from the
 producer side.
 Of course, the task can be easily forked or coerced into a promise if it needs
@@ -1624,7 +1624,7 @@ It becomes the responsibility of the consumer to determine when to sample,
 
 For the purposes of a smooth animation of a continuous behavior, the frame rate
 is a sensible polling frequency.
-We can infer a continous progress time series from the last known estimated time
+We can infer a continuous progress time series from the last known estimated time
 of completion.
 
 ```js
@@ -1738,7 +1738,7 @@ Reactive Programming by [Conal Elliott][] deserves attention.
 [Conal Elliott]: http://conal.net/
 
 The interplay between promises and tasks with their underlying progress behavior
-and estimated time to completion and status signals require further exlpanation.
+and estimated time to completion and status signals require further explanation.
 These ideas need to be incorporated into the sketches of promise and task
 implementations.
 
