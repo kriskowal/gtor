@@ -590,7 +590,7 @@ later forwards the return value of the observer to the resolver.
 This is a sketch of a `then` method that illustrates this adapter.
 Note that we create a deferred, use the resolver, and return the promise.
 The adapter is responsible for catching errors and giving the consumer an
-opportunity do further work or to recover.
+opportunity to do further work or to recover.
 
 ```js
 Promise.prototype.then = function Promise_then(onreturn, onthrow) {
