@@ -1232,11 +1232,12 @@ buffer.out.throw(new Error("That's enough, thanks"));
 
 ### Asynchronous Generator Functions
 
-Jafar Husain recently [asked the ECMAScript committee][JH], whether generator
+Jafar Husain recently [asked the ECMAScript committee][JH1], whether generator
 functions and async functions were composable, and if so, how they should
-compose.
+compose. (His [proposal][JH2] continues to evolve.)
 
-[JH]: https://docs.google.com/file/d/0B4PVbLpUIdzoMDR5dWstRllXblU
+[JH1]: https://docs.google.com/file/d/0B7zweKma2uL1bDBpcXV4OWd2cnc
+[JH2]: https://github.com/jhusain/asyncgenerator
 
 One key question is what type an async generator function would return.
 We look to precedent.
