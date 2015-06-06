@@ -6,8 +6,7 @@
   "license": "MIT",
   "dependencies": {
     "asap": "^1.0.0",
-    "collections": "^1.2.1",
-    "docco": "^0.6.3",
+    "collections": "^2.0.1",
     "jasminum": "^2.0.5",
     "weak-map": "^1.0.5"
   },
