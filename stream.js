@@ -222,6 +222,59 @@ Stream.prototype.do = function (callback, errback, limit) {
     next.call(this);
 };
 
+// ### pipe
+
+// Copies all output of this stream to the input of the given stream, including
+// the completion or any thrown errors.
+// Some might call this `subscribe`.
+
+Stream.prototype.pipe = function (stream) {
+    // The default concurrency for `forEach` limit is 1, making it execute
+    // serially.
+    // We will use signals to track the number of outstanding jobs and whether
+    // we have seen the last iteration.
+    var count = Observable.signal(0);
+    var done = Observable.signal(false);
+    // We will capture the return value in scope.
+    var returnValue;
+    // Using the do utility function to limit concurrency and give us
+    // iterations, or prematurely terminate, in which case we forward the error
+    // to the result task.
+    this.do(function (iteration) {
+        // If this was the last iteration, capture the return value and
+        // dispatch the done signal.
+        if (iteration.done) {
+            returnValue = iteration.value;
+            done.in.yield(true);
+        } else {
+            // Otherwise, we start a new job.
+            // Incrementing the number of outstanding jobs.
+            count.in.inc();
+            // Kick off the job, passing the callback argument pattern familiar
+            // to users of arrays, but allowing the task to return a promise to
+            // push back on the producer.
+            return Promise.try(callback, thisp, iteration.value, iteration.index)
+            .then(function (value) {
+                return stream.yield(value);
+            })
+            .finally(function () {
+                // And then decrementing the outstanding job counter,
+                // regardless of whether the job succeeded.
+                count.in.dec();
+            })
+        }
+    }, stream.throw, limit);
+    // We have not completed the task until all outstanding jobs have completed
+    // and no more iterations are available.
+    count.out.equals(Observable.yield(0)).and(done.out).forEach(function (done) {
+        if (done) {
+            stream.return(returnValue);
+        }
+    });
+    return stream;
+};
+
+
 // ### forEach
 
 // The `forEach` method will execute jobs, typically in serial, and returns a
