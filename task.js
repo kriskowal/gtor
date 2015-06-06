@@ -350,8 +350,16 @@ Task.return = function (value) {
     if (isTask(value)) {
         return value;
     } else if (isThenable(value)) {
-        /* TODO implement thenable coercion */
-        throw new Error("Thenables not yet implemented");
+        // FIXME sloppy with closures and should use weakmap of value to task
+        var deferred = Task.defer();
+        asap(function () {
+            value.then(function (value) {
+                deferred.in.return(value);
+            }, function (error) {
+                deferred.in.throw(value);
+            });
+        });
+        return deferred.out;
     } else {
         var handler = new TaskHandler();
         handler.state = "fulfilled";
