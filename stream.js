@@ -453,7 +453,72 @@ Stream.prototype.filter = function (callback, thisp, limit) {
 //
 // Yet to be ported.
 
-/* TODO reduce, some, every */
+Stream.prototype.reduce = function (callback, limit) {
+    var self = this;
+    var result = Task.defer();
+    var pool = Stream.buffer();
+
+    var sempahore = new PromiseQueue();
+    sempahore.put();
+
+    var done = false;
+    var size = 0;
+    for (var index = 0; index < limit; index++) {
+        next();
+    }
+
+    this.forEach(function (value) {
+        return pool.in.yield(value);
+    }).then(function (value) {
+        return pool.in.return(value);
+    }, function (error) {
+        return pool.in.throw(error);
+    });
+
+    var active = 0;
+
+    function next() {
+        return sempahore.get()
+        .then(function () {
+            return pool.out.yield().then(function (left) {
+                if (left.done) {
+                    done = true;
+                    sempahore.put();
+                    next();
+                    return;
+                }
+                if (done && active === 0) {
+                    result.in.return(left.value);
+                    return;
+                }
+                return pool.out.yield().then(function (right) {
+                    sempahore.put();
+                    if (right.done) {
+                        next();
+                        return pool.in.yield(left.value);
+                    }
+                    active++;
+                    return Task.return()
+                    .then(function () {
+                        return callback(left.value, right.value);
+                    })
+                    .then(function (value) {
+                        active--;
+                        next();
+                        return pool.in.yield(value);
+                    });
+                });
+            });
+        })
+        .done(null, function (error) {
+            result.in.throw(error);
+        })
+    }
+
+    return result.out;
+};
+
+/* TODO some, every, takeWhile, dropWhile, concat */
 
 // ### fork
 
