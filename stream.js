@@ -529,29 +529,27 @@ Stream.prototype.reduce = function (callback, limit) {
 
 Stream.prototype.fork = function (length) {
     length = length || 2;
-    var buffers = new Array(length).map(function () {
-        return this.constructor.buffer();
-    }, this);
-    var inputs = buffers.map(function (buffer) {
-        return buffer.in;
-    });
-    var outputs = buffers.map(function (buffer) {
-        return buffer.out;
-    });
+    var ins = [];
+    var outs = [];
+    for (var index = 0; index < length; index++) {
+        var buffer = this.constructor.buffer();
+        ins.push(buffer.in);
+        outs.push(buffer.out);
+    }
     this.forEach(function (value, index) {
-        return Promise.all(inputs.map(function (input) {
+        return Promise.all(ins.map(function (input) {
             return input.yield(value, index);
         }));
     }).then(function (value) {
-        return Promise.all(inputs.map(function (input) {
+        return Promise.all(ins.map(function (input) {
             return input.return(value);
         }));
     }, function (error) {
-        return Promise.all(inputs.map(function (input) {
+        return Promise.all(ins.map(function (input) {
             return input.throw(value);
         }));
     }).done();
-    return outputs;
+    return outs;
 };
 
 // ### relieve
@@ -579,4 +577,3 @@ Stream.prototype.relieve = function () {
         return current.promise;
     });
 };
-

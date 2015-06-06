@@ -341,7 +341,7 @@ function isTask(object) {
 // asynchronous duck types, including promises, which can be coerced into
 // tasks.
 function isThenable(object) {
-    return Object(object) === object && typeof object.then === "function";
+    return object && typeof object === "object" && typeof object.then === "function";
 }
 
 // The `return` function lifts a value into a task that has already completed
