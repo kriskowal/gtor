@@ -27,10 +27,10 @@ converging on a model that unifies at least promises and observables.
 
 [Rx]: https://github.com/Reactive-Extensions/RxJS/blob/aaebfe8962cfa06a6c80908d079928ba5b800c66/doc/readme.md
 
-             | **Singular**         | **Plural**
-:----------: | :------------------: | :---------------------:
-**Spatial**  | Value                | Iterable&lt;Value&gt;
-**Temporal** | Promise&lt;Value&gt; | Observable&lt;Value&gt;
+|              | **Singular**         | **Plural**              |
+| :----------: | :------------------: | :---------------------: |
+| **Spatial**  | Value                | Iterable&lt;Value&gt;   |
+| **Temporal** | Promise&lt;Value&gt; | Observable&lt;Value&gt; |
 
 However, this description fails to capture all of the varigated concepts of
 reactivity.
@@ -83,20 +83,20 @@ A **reader** is an asynchronous iterator and a **writer** is an asynchronous
 generator.
 
 
-Interface  |               |          |          |
----------- | ------------- | -------- | -------- |
-Value      | Value         | Singular | Spatial  |
-Getter     | Getter        | Singular | Spatial  |
-Setter     | Setter        | Singular | Spatial  |
-Array      | Value         | Plural   | Spatial  |
-Iterator   | Getter        | Plural   | Spatial  |
-Generator  | Setter        | Plural   | Spatial  |
-Deferred   | Value         | Singular | Temporal |
-Promise    | Getter        | Singular | Temporal |
-Resolver   | Setter        | Singular | Temporal |
-Stream     | Value         | Plural   | Temporal |
-Reader     | Getter        | Plural   | Temporal |
-Writer     | Setter        | Plural   | Temporal |
+| Interface  |               |          |          |
+| ---------- | ------------- | -------- | -------- |
+| Value      | Value         | Singular | Spatial  |
+| Getter     | Getter        | Singular | Spatial  |
+| Setter     | Setter        | Singular | Spatial  |
+| Array      | Value         | Plural   | Spatial  |
+| Iterator   | Getter        | Plural   | Spatial  |
+| Generator  | Setter        | Plural   | Spatial  |
+| Deferred   | Value         | Singular | Temporal |
+| Promise    | Getter        | Singular | Temporal |
+| Resolver   | Setter        | Singular | Temporal |
+| Stream     | Value         | Plural   | Temporal |
+| Reader     | Getter        | Plural   | Temporal |
+| Writer     | Setter        | Plural   | Temporal |
 
 
 ### Singular and temporal
@@ -795,11 +795,11 @@ collection of results: values or thrown errors captured by promises.
 The queue is not particular about what those values mean and is a suitable
 primitive for many more interesting tools.
 
-Interface     |         |        |          |
-------------- | ------- | ------ | -------- |
-PromiseQueue  | Value   | Plural | Temporal |
-queue.get     | Getter  | Plural | Temporal |
-queue.put     | Setter  | Plural | Temporal |
+| Interface     |         |        |          |
+| ------------- | ------- | ------ | -------- |
+| PromiseQueue  | Value   | Plural | Temporal |
+| queue.get     | Getter  | Plural | Temporal |
+| queue.put     | Setter  | Plural | Temporal |
 
 The implementation of a promise queue is sufficiently succinct that there’s no
 harm in embedding it here.
@@ -975,11 +975,11 @@ to regulate the rate of flow and avoid over-commitment.
 An asynchronous iterator is a readable stream.
 An asynchronous generator is a writable stream.
 
-Stream            |         |          |              |
------------------ | ------- | -------- | ------------ |
-Promise Buffer    | Value   | Plural   | Temporal     |
-Promise Iterator  | Getter  | Plural   | Temporal     |
-Promise Generator | Setter  | Plural   | Temporal     |
+| Stream            |         |          |              |
+| ----------------- | ------- | -------- | ------------ |
+| Promise Buffer    | Value   | Plural   | Temporal     |
+| Promise Iterator  | Getter  | Plural   | Temporal     |
+| Promise Generator | Setter  | Plural   | Temporal     |
 
 A buffer has a reader and writer, but there are implementations of reader and
 writer that interface with the outside world, mostly files and sockets.
@@ -1472,14 +1472,14 @@ The discrete event pusher is a Signal.
 The continuous, pollable is a Behavior.
 
 
-Interface          |               |      |
------------------- | --------------| ---- |
-Signal Observable  | Get           | Push |
-Signal Generator   | Set           | Push |
-Signal             | Value         | Push |
-Behavior Iterator  | Get           | Poll |
-Behavior Generator | Set           | Poll |
-Behavior           | Value         | Poll |
+| Interface          |               |      |
+| ------------------ | --------------| ---- |
+| Signal Observable  | Get           | Push |
+| Signal Generator   | Set           | Push |
+| Signal             | Value         | Push |
+| Behavior Iterator  | Get           | Poll |
+| Behavior Generator | Set           | Poll |
+| Behavior           | Value         | Poll |
 
 
 -   TODO make sure this is a summary of the topics in the end:
