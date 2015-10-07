@@ -1,7 +1,7 @@
 
 # Summary
 
-* [Introduction](intro.md)
+* [A General Theory of Reactivity](intro.md)
 * [Concepts](concepts.md)
 * Idioms
   - [Iterators](iterators.md)
