@@ -99,7 +99,7 @@ generator.
 | Writer     | Setter        | Plural   | Temporal |
 
 
-### Singular and temporal
+### Singular and plural
 
 An observer can subscribe to eventually see the value of a promise.
 They can do this before or after the promise has a value.
