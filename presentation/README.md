@@ -323,7 +323,7 @@ a job completes.
 With continuous data, it is not practical to use an observer because the
 sampling frequency is arbitrary.
 With a time-series like time or progress, an iterator is appropriate because
-it allows the consumer to dictate the pace, or rather, controls the flow.
+it allows the consumer to dictate the pace, or rather, control the flow.
 In an application, for example, you would sample the time or progress once
 for each animation frame.
 The failure mode for iterators is to sample less frequently.
@@ -342,7 +342,7 @@ we don't need to track every value that an observer of a time-series emits.
 
 ![A Promise in Perspective](perspective-promise.png)
 
-No, extending into the asynchronous dimension we find asynchronous singular
+Now, extending into the asynchronous dimension we find asynchronous singular
 models.
 JavaScript's asynchronous promise is one of these models, perpetrated by
 Mark S. Miller, as conceived for the E programming language.
@@ -412,7 +412,7 @@ a promise with an interface and behavior you can rely on to protect your scope
 invariants.
 A good promise library will ensure that either the fulfillment handler or the
 rejection handler will be called never or exactly once, asynchronously.
-This allows you can finalize your "plan" before returning.
+This allows you to finalize your "plan" before returning.
 
 ## Order Independence of Promises
 
@@ -516,7 +516,7 @@ from the past or the future.
 - order independence and temporal independence: a promise can be resolved
   before it is observed, or observed before it is resolved.
   The usage is the same for both cases.
-- protects agains plan interference and surprises by guaranteeing asynchronous
+- protects against plan interference and surprises by guaranteeing asynchronous
   handlers. (Zalgo, he comes not)
 - unidirectional: guarantees that information flows from producer to consumer,
   protecting the Principle of Least Authority and Action at a Distance hazards.
@@ -528,7 +528,7 @@ from the past or the future.
 
 ![Streams in Perspective](perspective-stream.png)
 
-Having now explored synchronous and pluarl as well as asynchronous and singular,
+Having now explored synchronous and plural as well as asynchronous and singular,
 we can triangulate a coherent model for asynchronous and plural.
 This is the realm of streams.
 
@@ -557,9 +557,9 @@ that value has been put onto the queue.
 
 ![The Temporal Independence of a Promise Queue](promise-queue-temporal-independence.png)
 
-Also, a promise can be put onto the queue.
+Also, a promise can be put onto the queue instead of a value.
 Let that sink in a moment.
-A promise queue only guarantees for each call to get, the returned proise is
+A promise queue only guarantees for each call to get, the returned promise is
 resolved by the corresponding put in the order get and put are called.
 It maintains no guarantees about the order in which those promises resolve.
 
@@ -610,6 +610,13 @@ its done bit set.
 
 An asynchronous iterator is its own dual.
 It is a reflexive dual.
+That is, you can use one asynchronous iterator as a writer, and use its dual as
+a reader.
+The writer will send values from the producer to the consumer, and the reader
+will send acknowledgements (iterations carrying a null value) back to the
+producer.
+They use the same interface, using `next` both to send a value and receive a
+promise for the next iteration.
 
 ## Streams
 
@@ -624,7 +631,7 @@ rejected promise onto the queue.
 
 Asynchronous iterators can both push and pull.
 They maintain the same speed, the slower of the producer and consumer,
-by waiting for the promise next returns before calling next again.
+by waiting for the promise `next` returns before calling `next` again.
 A buffer can be constructed by priming the return queue with a bunch of null
 iterations, determining the maximum number of concurrent iterations in flight.
 
@@ -647,7 +654,7 @@ iterators, like `map`, `reduce`, and `forEach`.
 # Epilogue: Compelling Animations
 
 This brings us to our exciting conclusion.
-The following animated gifs are recordings of browser-based demos orchestrated
+The following animations are recordings of browser-based demos orchestrated
 from a prototype implementation of asynchronous iterators in the [GToR][]
 repository.
 
