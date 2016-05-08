@@ -491,7 +491,7 @@ open the door for triangulating async generator functions.
 
 Another dimension of concern for asynchronous singular values is whether
 information only flows from producer to consumer, or whether some information
-can propagate back to the consumer like cancellation.
+can propagate back to the producer like cancellation.
 For something like cancellation to work, information has to flow back up stream.
 That information could then propagate downstream to any other consumers.
 This would constitute another form of plan interference.
