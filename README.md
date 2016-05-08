@@ -3,9 +3,10 @@
 
 *A work in progress.*
 
-*There are three recordings of a presentation of A General Theory of
+*There are three recordings of a [presentation][] of A General Theory of
 Reactivity: [OSCON][], [MediterraneaJS][], [MidwestJS][].*
 
+[presentation]: https://github.com/kriskowal/gtor/blob/master/presentation/README.md
 [OSCON]: https://www.youtube.com/watch?v=2p51PE1MZ8U
 [MediterraneaJS]: https://vimeo.com/144478375
 [MidwestJS]: https://www.youtube.com/watch?v=R9CGieinKVo
