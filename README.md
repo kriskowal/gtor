@@ -4,7 +4,8 @@
 *A work in progress.*
 
 *There are three recordings of a [presentation][] of A General Theory of
-Reactivity: [OSCON][], [MediterraneaJS][], [MidwestJS][].*
+Reactivity: [OSCON][], [MediterraneaJS][], [MidwestJS][]. The [presentation][]
+includes figures and animations not presented here.*
 
 [presentation]: https://github.com/kriskowal/gtor/blob/master/presentation/README.md
 [OSCON]: https://www.youtube.com/watch?v=2p51PE1MZ8U
