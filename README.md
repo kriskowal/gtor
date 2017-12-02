@@ -425,11 +425,14 @@ requests.
 
 ```js
 function *echo() {
-    var message;
+    var message, tmp_message, old_message;
     while (true) {
-        message = yield message;
+        message = yield old_message;
+        old_message = tmp_message;
+        tmp_message = message; 
     }
 }
+
 
 var iterator = echo();
 expect(iterator.next().value).toBe(undefined);
@@ -444,6 +447,8 @@ We advance the state machine to the first `yield` and allow it to produce the
 initial, undefined message.
 We then populate the message variable with a value, receiving its former
 undefined content again.
+After that we take the value that was yielded before and save it for the next
+iteration.
 Then we begin to see the fruit of our labor as the values we previously sent
 backward come forward again.
 This foreshadows the ability of stream readers to push back on stream writers.
