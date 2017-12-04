@@ -92,11 +92,13 @@ Much depends on the nature of the information that the primitive models.
 ## Foreshadowing Streams
 
 ```js
-return Stream.from(fileNames).map(fileName =>
-    fs.readFile(fileName).then(content =>
-       ({fileName, content})
-}, null, 20).forEach(({fileName, content}) =>
-    console.log(fileName, content.length)
+return Stream.from(fileNames).map(
+    fileName => fs.readFile(fileName).then(
+        content => ({fileName, content})
+    ), null, 20
+).forEach(
+    ({fileName, content}) =>
+        console.log(fileName, content.length)
 );
 ```
 
