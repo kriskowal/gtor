@@ -427,26 +427,35 @@ requests.
 function *echo() {
     var message;
     while (true) {
+        console.log("tick");
         message = yield message;
+        console.log("tock");
     }
 }
 
 var iterator = echo();
-expect(iterator.next().value).toBe(undefined);
-expect(iterator.next("Hello").value).toBe(undefined);
-expect(iterator.next("Goodbye").value).toBe("Hello");
-expect(iterator.next().value).toBe("Goodbye");
-expect(iterator.next().value).toBe(undefined);
+console.log(iterator.next());
+// tick
+// { value: undefined, done: false }
+console.log(iterator.next("Hello"));
+// tock
+// tick
+// { value: "Hello", done: false }
+console.log(iterator.next("Goodbye"));
+// tock
+// tick
+// { value: "Goodbye", done: false }
 ```
 
 We must prime the generator because it does not begin with a `yield`.
 We advance the state machine to the first `yield` and allow it to produce the
-initial, undefined message.
-We then populate the message variable with a value, receiving its former
-undefined content again.
-Then we begin to see the fruit of our labor as the values we previously sent
-backward come forward again.
-This foreshadows the ability of stream readers to push back on stream writers.
+initial, undefined message and halts at the yield expression.
+We then send a "Hello".
+This resumes the generator, storing the message, continuing into another
+iterator, retreiving the same message, yielding it back to the caller.
+
+This communication back and forth between the consumer and producer foreshadows
+the ability of stream readers to push back on stream writers.
 
 Additionally, the iterator gains a `throw` method that allows the iterator to
 terminate the generator by causing the `yield` expression to raise the given
